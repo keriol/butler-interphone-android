@@ -1,0 +1,20 @@
+# Gradle / Android
+.gradle/
+**/build/
+local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+
+# Runtime configuration and secrets
+.env
+.env.*
+secrets.properties
+keystore.properties
+*.jks
+*.keystore
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
