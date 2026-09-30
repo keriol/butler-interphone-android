@@ -50,9 +50,9 @@ The bootstrap is pinned to stable tooling:
 - JDK 17;
 - compile/target SDK 36;
 - Kotlin 2.4.10 Compose compiler plugin with AGP built-in Kotlin;
-- Compose BOM 2026.09.00;
-- Activity Compose 1.13.0;
-- Lifecycle 2.11.0;
+- Compose BOM 2026.04.01;
+- Activity Compose 1.11.0;
+- Lifecycle 2.10.0;
 - kotlinx.coroutines 1.11.0.
 
 ## Build
