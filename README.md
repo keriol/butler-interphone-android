@@ -48,7 +48,7 @@ The bootstrap is pinned to stable tooling:
 - Android Gradle Plugin 9.4.0;
 - Gradle 9.6.0;
 - JDK 17;
-- compile/target SDK 37;
+- compile/target SDK 36;
 - Kotlin 2.4.10 Compose compiler plugin with AGP built-in Kotlin;
 - Compose BOM 2026.09.00;
 - Activity Compose 1.13.0;
@@ -60,7 +60,7 @@ The bootstrap is pinned to stable tooling:
 Requirements:
 
 - JDK 17;
-- Android SDK platform 37;
+- Android SDK platform 36;
 - Android SDK Build Tools 36.0.0;
 - Gradle 9.6.0, or Android Studio with compatible tooling.
 
