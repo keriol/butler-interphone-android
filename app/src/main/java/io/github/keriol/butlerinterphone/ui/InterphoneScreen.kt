@@ -25,6 +25,7 @@ import io.github.keriol.butlerinterphone.settings.ConnectionSettingsStore
 
 @Composable
 fun InterphoneRoute(
+    buildIdentity: String,
     initialEndpoint: BifrostEndpointParts,
     initialToken: String,
     settingsStore: ConnectionSettingsStore,
@@ -41,6 +42,7 @@ fun InterphoneRoute(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     InterphoneScreen(
+        buildIdentity = buildIdentity,
         state = state,
         onProtocolChanged = viewModel::onProtocolChanged,
         onHostChanged = viewModel::onHostChanged,
@@ -54,6 +56,7 @@ fun InterphoneRoute(
 
 @Composable
 fun InterphoneScreen(
+    buildIdentity: String,
     state: InterphoneUiState,
     onProtocolChanged: (String) -> Unit,
     onHostChanged: (String) -> Unit,
@@ -72,6 +75,10 @@ fun InterphoneScreen(
         Text(
             text = "Butler Interphone",
             style = MaterialTheme.typography.headlineMedium,
+        )
+        Text(
+            text = buildIdentity,
+            style = MaterialTheme.typography.bodySmall,
         )
 
         Spacer(modifier = Modifier.height(24.dp))
