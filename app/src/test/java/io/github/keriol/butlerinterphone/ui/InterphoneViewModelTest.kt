@@ -20,21 +20,34 @@ import org.junit.Test
 class InterphoneViewModelTest {
 
     @Test
-    fun sendMovesFromSendingToSuccessAndPreservesCorrelation() = runTest {
+    fun sendUsesRuntimeSettingsAndPreservesTargetlessCorrelation() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
 
         try {
             val pending = CompletableDeferred<InterphoneResponse>()
+            var capturedEndpoint: String? = null
+            var capturedToken: String? = null
+            var capturedRequest: InterphoneRequest? = null
 
-            val client = object : InterphoneClient {
-                override suspend fun send(
-                    request: InterphoneRequest,
-                ): InterphoneResponse = pending.await()
+            val clientFactory = { endpoint: String, token: String ->
+                capturedEndpoint = endpoint
+                capturedToken = token
+
+                object : InterphoneClient {
+                    override suspend fun send(
+                        request: InterphoneRequest,
+                    ): InterphoneResponse {
+                        capturedRequest = request
+                        return pending.await()
+                    }
+                }
             }
 
             val viewModel = InterphoneViewModel(
-                client = client,
+                clientFactory = clientFactory,
+                initialEndpoint = "http://example.test:5055",
+                initialToken = "secret",
                 requestIdFactory = { "req-1" },
             )
 
@@ -50,11 +63,14 @@ class InterphoneViewModelTest {
                 "req-1",
                 viewModel.uiState.value.requestId,
             )
+            assertEquals("http://example.test:5055", capturedEndpoint)
+            assertEquals("secret", capturedToken)
+            assertNull(capturedRequest?.targetButlerName)
 
             pending.complete(
                 InterphoneResponse(
                     requestId = "req-1",
-                    response = "Echo: hello",
+                    response = "Ready.",
                 )
             )
 
@@ -65,7 +81,7 @@ class InterphoneViewModelTest {
                 viewModel.uiState.value.phase,
             )
             assertEquals(
-                "Echo: hello",
+                "Ready.",
                 viewModel.uiState.value.response,
             )
             assertNull(viewModel.uiState.value.error)
@@ -75,34 +91,27 @@ class InterphoneViewModelTest {
     }
 
     @Test
-    fun blankMessageIsRejectedWithoutCallingClient() = runTest {
+    fun blankMessageIsRejectedWithoutCreatingClient() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
 
         try {
-            var called = false
-
-            val client = object : InterphoneClient {
-                override suspend fun send(
-                    request: InterphoneRequest,
-                ): InterphoneResponse {
-                    called = true
-                    return InterphoneResponse(
-                        requestId = request.requestId,
-                        response = "unexpected",
-                    )
-                }
-            }
+            var created = false
 
             val viewModel = InterphoneViewModel(
-                client = client,
+                clientFactory = { _, _ ->
+                    created = true
+                    error("client must not be created")
+                },
+                initialEndpoint = "http://example.test:5055",
+                initialToken = "secret",
                 requestIdFactory = { "req-blank" },
             )
 
             viewModel.onMessageChanged("   ")
             viewModel.send()
 
-            assertEquals(false, called)
+            assertEquals(false, created)
             assertEquals(
                 RequestPhase.Error,
                 viewModel.uiState.value.phase,
@@ -117,22 +126,74 @@ class InterphoneViewModelTest {
     }
 
     @Test
+    fun missingEndpointIsRejected() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+
+        try {
+            val viewModel = InterphoneViewModel(
+                clientFactory = { _, _ ->
+                    error("client must not be created")
+                },
+                initialToken = "secret",
+            )
+
+            viewModel.onMessageChanged("hello")
+            viewModel.send()
+
+            assertEquals(
+                "Bifröst endpoint is required.",
+                viewModel.uiState.value.error,
+            )
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun missingTokenIsRejected() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+
+        try {
+            val viewModel = InterphoneViewModel(
+                clientFactory = { _, _ ->
+                    error("client must not be created")
+                },
+                initialEndpoint = "http://example.test:5055",
+            )
+
+            viewModel.onMessageChanged("hello")
+            viewModel.send()
+
+            assertEquals(
+                "Bifröst token is required.",
+                viewModel.uiState.value.error,
+            )
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
     fun correlationMismatchBecomesVisibleError() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
 
         try {
-            val client = object : InterphoneClient {
-                override suspend fun send(
-                    request: InterphoneRequest,
-                ) = InterphoneResponse(
-                    requestId = "wrong-id",
-                    response = "wrong response",
-                )
-            }
-
             val viewModel = InterphoneViewModel(
-                client = client,
+                clientFactory = { _, _ ->
+                    object : InterphoneClient {
+                        override suspend fun send(
+                            request: InterphoneRequest,
+                        ) = InterphoneResponse(
+                            requestId = "wrong-id",
+                            response = "wrong response",
+                        )
+                    }
+                },
+                initialEndpoint = "http://example.test:5055",
+                initialToken = "secret",
                 requestIdFactory = { "req-2" },
             )
 
