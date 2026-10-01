@@ -153,6 +153,7 @@ class InterphoneViewModel(
                 phase = RequestPhase.Sending,
                 requestId = requestId,
                 response = null,
+                sourceButlerName = null,
                 error = null,
             )
         }
@@ -182,6 +183,7 @@ class InterphoneViewModel(
                     it.copy(
                         phase = RequestPhase.Success,
                         response = response.response,
+                        sourceButlerName = response.sourceButlerName,
                         error = null,
                     )
                 }
