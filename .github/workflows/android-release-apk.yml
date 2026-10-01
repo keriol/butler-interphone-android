@@ -1,6 +1,9 @@
 name: Android Release APK
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -64,6 +67,14 @@ jobs:
           chmod 600 "$KEYSTORE_PATH"
           echo "INTERPHONE_KEYSTORE_PATH=$KEYSTORE_PATH" >>"$GITHUB_ENV"
 
+      - name: Define stable Android version code
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER))
+          echo "INTERPHONE_VERSION_CODE=$VERSION_CODE" >>"$GITHUB_ENV"
+          echo "Stable versionCode: $VERSION_CODE"
+
       - name: Unit tests
         run: gradle --no-daemon testDebugUnitTest
 
@@ -74,30 +85,42 @@ jobs:
           INTERPHONE_KEY_PASSWORD: ${{ secrets.INTERPHONE_KEY_PASSWORD }}
         run: gradle --no-daemon assembleRelease
 
-      - name: Verify release APK signature
+      - name: Verify release APK signature and version code
         shell: bash
         run: |
           set -euo pipefail
           APKSIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          APKANALYZER="$(
+            find "$ANDROID_HOME/cmdline-tools" -type f -name apkanalyzer -print | head -n 1
+          )"
           APK="app/build/outputs/apk/release/app-release.apk"
 
           test -f "$APK"
+          test -n "$APKANALYZER"
           "$APKSIGNER" verify --verbose --print-certs "$APK"
 
-      - name: Stage release artifact
+          EXPECTED="$(gradle -q :app:printVersionCode)"
+          ACTUAL="$("$APKANALYZER" manifest version-code "$APK")"
+          test "$ACTUAL" = "$EXPECTED"
+          test "$ACTUAL" = "$INTERPHONE_VERSION_CODE"
+          echo "Verified versionCode: $ACTUAL"
+
+      - name: Stage stable release artifact
         shell: bash
         run: |
           set -euo pipefail
           VERSION="$(gradle -q :app:printVersionName)"
+          VERSION_CODE="$(gradle -q :app:printVersionCode)"
           BUILD_DATE="$(date -u +%F)"
           VERSION_LABEL="${VERSION/.dev/-dev}"
           mkdir -p release-artifact
-          cp             app/build/outputs/apk/release/app-release.apk             "release-artifact/Butler-Interphone-${VERSION_LABEL}-${BUILD_DATE}.apk"
+          cp app/build/outputs/apk/release/app-release.apk \
+            "release-artifact/Butler-Interphone-STABLE-${VERSION_LABEL}-vc${VERSION_CODE}-${BUILD_DATE}.apk"
 
-      - name: Upload signed release APK
+      - name: Upload signed stable APK
         uses: actions/upload-artifact@v7
         with:
-          name: Butler-Interphone-release-${{ github.sha }}
-          path: release-artifact/Butler-Interphone-*.apk
+          name: Butler-Interphone-STABLE-${{ github.sha }}
+          path: release-artifact/Butler-Interphone-STABLE-*.apk
           if-no-files-found: error
           retention-days: 14
