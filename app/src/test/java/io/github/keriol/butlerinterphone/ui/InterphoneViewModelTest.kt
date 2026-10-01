@@ -105,6 +105,7 @@ class InterphoneViewModelTest {
 
         try {
             var capturedRequest: InterphoneRequest? = null
+            val store = FakeSettingsStore()
 
             val viewModel = InterphoneViewModel(
                 clientFactory = { _, _ ->
@@ -121,7 +122,7 @@ class InterphoneViewModelTest {
                         }
                     }
                 },
-                settingsStore = FakeSettingsStore(),
+                settingsStore = store,
                 initialEndpoint = BifrostEndpointParts(
                     host = "example.test",
                     port = "5055",
@@ -146,6 +147,10 @@ class InterphoneViewModelTest {
             assertEquals(
                 "Concrete-Butler",
                 viewModel.uiState.value.sourceButlerName,
+            )
+            assertEquals(
+                "Concrete-Butler",
+                store.saved?.defaultButlerName,
             )
         } finally {
             Dispatchers.resetMain()
