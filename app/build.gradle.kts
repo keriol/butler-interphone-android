@@ -1,3 +1,5 @@
+import java.time.LocalDate
+import java.time.ZoneOffset
 import java.util.Properties
 
 plugins {
@@ -22,6 +24,10 @@ fun quoted(value: String): String =
     "\"" + value
         .replace("\\", "\\\\")
         .replace("\"", "\\\"") + "\""
+
+val buildDate = runtimeValue("INTERPHONE_BUILD_DATE").ifBlank {
+    LocalDate.now(ZoneOffset.UTC).toString()
+}
 
 val releaseKeystorePath = providers.environmentVariable(
     "INTERPHONE_KEYSTORE_PATH"
@@ -65,6 +71,11 @@ android {
             "String",
             "BIFROST_TOKEN",
             quoted(runtimeValue("INTERPHONE_BIFROST_TOKEN")),
+        )
+        buildConfigField(
+            "String",
+            "BUILD_DATE",
+            quoted(buildDate),
         )
     }
 
