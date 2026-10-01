@@ -26,8 +26,8 @@ first commit.
 
 ## Current milestone
 
-INT-002 replaces the INT-001 local echo with a real Bifröst HTTP client while
-preserving the same Compose/ViewModel architecture:
+INT-004 builds on the real Bifröst HTTP client with persistent local
+connection settings while preserving the same Compose/ViewModel architecture:
 
 \`\`\`text
 Compose UI
@@ -43,6 +43,9 @@ Bifröst HTTP
 
 The current screen provides:
 
+- separate protocol, host and port fields;
+- `http` as the default protocol;
+- a masked bearer-token field;
 - a message field;
 - a Send button;
 - asynchronous request state;
