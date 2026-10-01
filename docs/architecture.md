@@ -2,7 +2,7 @@
 
 Butler Interphone is a client, not a Butler runtime.
 
-```text
+\`\`\`text
 Compose UI
     |
 ViewModel
@@ -11,24 +11,31 @@ InterphoneClient
     |
  Bifröst
     |
-  Asgard
+ Midgard
     |
-active Butler
-```
+Butler Core
+   /      \
+plugin   Asgard -> concrete Butler
+\`\`\`
 
 ## Ownership
 
 - Compose owns presentation.
 - The ViewModel owns interaction state and orchestration for the screen.
-- `InterphoneClient` is the replaceable client boundary.
-- Bifröst owns client/runtime transport and correlation.
-- Asgard is the runtime-side Butler boundary.
-- A concrete Butler runtime owns domains, capabilities, policy and execution.
+- \`InterphoneClient\` is the replaceable client boundary.
+- Bifröst owns client transport/correlation.
+- Midgard carries the request inward.
+- Core-facing capabilities do not require a concrete Butler target.
+- Asgard is used only when an explicitly addressed concrete Butler runtime is required.
+- Provider plugins own provider integration behavior.
 
-The Android app must not acquire direct knowledge of Alfred domains or household entity identifiers.
+The Android app must not acquire direct knowledge of Alfred domains, Home
+Assistant entity identifiers, HAP internals, Midgard routing or Asgard.
 
-## Bootstrap seam
+## Transport seam
 
-INT-001 starts with a `LocalEchoClient` so UI and state management can be proven without networking.
+INT-001 proved the UI using \`LocalEchoClient\`.
 
-The next transport slice replaces that implementation with a Bifröst client without restructuring the UI.
+INT-002 swaps in \`BifrostHttpClient\` without restructuring the UI. A request
+with no \`target_butler_name\` remains Core-facing. Explicit Butler addressing
+can be added per request later through the same client contract.
