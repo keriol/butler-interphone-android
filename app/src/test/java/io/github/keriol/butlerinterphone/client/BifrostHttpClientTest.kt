@@ -193,8 +193,6 @@ class BifrostHttpClientTest {
             failure.message,
         )
     }
-}
-
 
     @Test
     fun butlerDirectoryIsFetchedFromReadOnlyEndpoint() = runTest {
@@ -240,3 +238,4 @@ class BifrostHttpClientTest {
         assertEquals(true, result[0].available)
         assertEquals(false, result[1].available)
     }
+}
