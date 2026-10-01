@@ -158,3 +158,40 @@ class BifrostHttpClientTest {
         assertEquals("Correlation mismatch.", failure.message)
     }
 }
+
+
+    @Test
+    fun nonJsonResponseIncludesHttpStatusAndBodyPreview() {
+        val failure = assertThrows(
+            InterphoneClientException.InvalidResponse::class.java
+        ) {
+            BifrostJsonCodec.decodeResponse(
+                expectedRequestId = "req-500",
+                statusCode = 500,
+                body = "Internal Server Error",
+            )
+        }
+
+        assertEquals(
+            "Bifröst returned invalid JSON (HTTP 500): Internal Server Error",
+            failure.message,
+        )
+    }
+
+    @Test
+    fun nonJsonResponseRedactsBearerPreview() {
+        val failure = assertThrows(
+            InterphoneClientException.InvalidResponse::class.java
+        ) {
+            BifrostJsonCodec.decodeResponse(
+                expectedRequestId = "req-500",
+                statusCode = 500,
+                body = "Bearer super-secret-token",
+            )
+        }
+
+        assertEquals(
+            "Bifröst returned invalid JSON (HTTP 500): Bearer [redacted]",
+            failure.message,
+        )
+    }
