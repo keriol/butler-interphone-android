@@ -18,11 +18,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import io.github.keriol.butlerinterphone.client.InterphoneClient
 
 @Composable
 fun InterphoneRoute(
-    viewModel: InterphoneViewModel = viewModel(),
+    client: InterphoneClient,
 ) {
+    val viewModel: InterphoneViewModel = viewModel(
+        factory = InterphoneViewModelFactory(client),
+    )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     InterphoneScreen(

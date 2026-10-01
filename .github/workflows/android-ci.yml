@@ -33,16 +33,24 @@ jobs:
         shell: bash
         run: |
           SDKMANAGER="$(
-            find "$ANDROID_HOME/cmdline-tools"               -type f               -name sdkmanager               -print               | head -n 1
+            find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print | head -n 1
           )"
 
           test -n "$SDKMANAGER"
 
           yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER"             "platforms;android-36"             "build-tools;36.0.0"
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0"
 
       - name: Unit tests
         run: gradle --no-daemon testDebugUnitTest
 
       - name: Build debug APK
         run: gradle --no-daemon assembleDebug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: butler-interphone-debug-${{ github.sha }}
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7

@@ -2,48 +2,77 @@
 
 **The Android client for the Butler ecosystem.**
 
-Butler Interphone is a replaceable Android frontend for communicating with a compatible Butler runtime through the Butler communication boundaries.
+Butler Interphone is a replaceable Android frontend that talks only to the
+Bifröst client boundary.
 
-```text
+\`\`\`text
 Butler Interphone
        |
     Bifröst
        |
-     Asgard
+    Midgard
        |
- active Butler
-```
+ Butler Core
+   /      \
+plugin   Asgard -> concrete Butler
+\`\`\`
 
-The project is currently in private incubation and is being developed with a future public release in mind. Public/private boundaries are therefore enforced from the first commit.
+The Android app does not know Alfred, Home Assistant, HAP, Midgard or Asgard
+implementation details.
+
+The project is currently in private incubation and is being developed with a
+future public release in mind. Public/private boundaries are enforced from the
+first commit.
 
 ## Current milestone
 
-INT-001 proves the local Android architecture before networking is introduced:
+INT-002 replaces the INT-001 local echo with a real Bifröst HTTP client while
+preserving the same Compose/ViewModel architecture:
 
-```text
+\`\`\`text
 Compose UI
    |
 InterphoneViewModel
    |
 InterphoneClient
    |
-LocalEchoClient
-```
-
-The next slice replaces `LocalEchoClient` with a Bifröst transport without restructuring the UI.
+BifrostHttpClient
+   |
+Bifröst HTTP
+\`\`\`
 
 The current screen provides:
 
 - a message field;
 - a Send button;
 - asynchronous request state;
-- a local echo response;
+- real Bifröst text request/response;
 - a visible request/correlation ID;
-- visible validation/correlation errors.
+- visible typed transport/protocol errors.
+
+A request with no \`target_butler_name\` is intentionally Core-facing. A future
+interaction that explicitly addresses a Butler may set the target without
+changing the UI architecture.
+
+## Runtime configuration
+
+Endpoint and token are never committed.
+
+Provide them as Gradle properties, environment variables, or entries in the
+ignored Android \`local.properties\` file:
+
+\`\`\`text
+INTERPHONE_BIFROST_URL=https://example.invalid
+INTERPHONE_BIFROST_TOKEN=replace-at-build-time
+\`\`\`
+
+The URL is the Bifröst host base URL. The client appends
+\`/bifrost/v1/text\`.
+
+For local proving, \`~/.gradle/gradle.properties\` is convenient because it
+remains outside the repository.
 
 ## Android stack
-
-The bootstrap is pinned to stable tooling:
 
 - Android Gradle Plugin 9.4.0;
 - Gradle 9.6.0;
@@ -53,7 +82,9 @@ The bootstrap is pinned to stable tooling:
 - Compose BOM 2026.04.01;
 - Activity Compose 1.11.0;
 - Lifecycle 2.10.0;
-- kotlinx.coroutines 1.11.0.
+- kotlinx.coroutines 1.11.0;
+- kotlinx.serialization JSON 1.11.0;
+- Android/JDK \`HttpURLConnection\` for HTTP transport.
 
 ## Build
 
@@ -66,18 +97,17 @@ Requirements:
 
 From a clean checkout:
 
-```bash
+\`\`\`bash
 gradle --no-daemon testDebugUnitTest
 gradle --no-daemon assembleDebug
-```
+\`\`\`
 
-CI performs the same unit-test and debug-build path.
+CI performs the same unit-test and debug-build path without private runtime
+configuration.
 
 ## Kotlin map for C# developers
 
-A few useful mental translations:
-
-```text
+\`\`\`text
 Kotlin data class        ~ C# record
 val                      ~ read-only reference
 var                      ~ mutable reference
@@ -85,9 +115,10 @@ suspend fun              ~ async-style suspendable operation
 StateFlow<T>             ~ observable state stream
 ViewModel                ~ UI-facing state/logic owner
 Composable               ~ function that renders UI from state
-```
+\`\`\`
 
-The important architectural rule is that the Composable does not perform the request itself. It emits user intent to the ViewModel; the ViewModel talks to an `InterphoneClient`.
+The Composable never performs the network request. It emits user intent to the
+ViewModel; the ViewModel talks to an \`InterphoneClient\`.
 
 ## Public-ready boundary
 
@@ -102,7 +133,8 @@ This repository must never contain:
 
 Runtime configuration belongs outside source control.
 
-See [Architecture](docs/architecture.md), [Contributing](CONTRIBUTING.md), and [Security](SECURITY.md).
+See [Architecture](docs/architecture.md), [Contributing](CONTRIBUTING.md), and
+[Security](SECURITY.md).
 
 ## License
 
