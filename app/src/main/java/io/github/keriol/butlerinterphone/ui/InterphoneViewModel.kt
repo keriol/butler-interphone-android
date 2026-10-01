@@ -1,10 +1,10 @@
 package io.github.keriol.butlerinterphone.ui
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import io.github.keriol.butlerinterphone.client.InterphoneClient
 import io.github.keriol.butlerinterphone.client.InterphoneRequest
-import io.github.keriol.butlerinterphone.client.LocalEchoClient
 import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class InterphoneViewModel(
-    private val client: InterphoneClient = LocalEchoClient(),
+    private val client: InterphoneClient,
     private val requestIdFactory: () -> String = {
         UUID.randomUUID().toString()
     },
@@ -86,15 +86,35 @@ class InterphoneViewModel(
                         error = null,
                     )
                 }
-            } catch (_: Exception) {
+            } catch (exc: Exception) {
                 _uiState.update {
                     it.copy(
                         phase = RequestPhase.Error,
-                        error = "Request failed.",
+                        error = (
+                            exc.message
+                                ?.takeIf { message -> message.isNotBlank() }
+                                ?: "Request failed."
+                        ),
                         response = null,
                     )
                 }
             }
         }
+    }
+}
+
+class InterphoneViewModelFactory(
+    private val client: InterphoneClient,
+) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(
+        modelClass: Class<T>,
+    ): T {
+        require(
+            modelClass.isAssignableFrom(
+                InterphoneViewModel::class.java
+            )
+        )
+        return InterphoneViewModel(client) as T
     }
 }
