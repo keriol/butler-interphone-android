@@ -22,7 +22,9 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     InterphoneRoute(
-                        buildIdentity = "v${BuildConfig.VERSION_NAME} • ${BuildConfig.BUILD_DATE}",
+                        appVersion = BuildConfig.VERSION_NAME,
+                        buildDate = BuildConfig.BUILD_DATE,
+                        buildType = BuildConfig.BUILD_TYPE,
                         initialEndpoint = BifrostEndpointParts.fromUrl(
                             BuildConfig.BIFROST_URL
                         ),
