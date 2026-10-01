@@ -2,9 +2,6 @@ package io.github.keriol.butlerinterphone.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -77,49 +74,45 @@ fun InterphoneScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Row(
+        OutlinedTextField(
+            value = state.protocol,
+            onValueChange = onProtocolChanged,
             modifier = Modifier.fillMaxWidth(),
-        ) {
-            OutlinedTextField(
-                value = state.protocol,
-                onValueChange = onProtocolChanged,
-                modifier = Modifier.width(110.dp),
-                enabled = state.phase != RequestPhase.Sending,
-                singleLine = true,
-                label = {
-                    Text("Protocol")
-                },
-                placeholder = {
-                    Text("http")
-                },
-            )
+            enabled = state.phase != RequestPhase.Sending,
+            singleLine = true,
+            label = {
+                Text("Protocol")
+            },
+            placeholder = {
+                Text("http")
+            },
+        )
 
-            Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-            OutlinedTextField(
-                value = state.host,
-                onValueChange = onHostChanged,
-                modifier = Modifier.weight(1f),
-                enabled = state.phase != RequestPhase.Sending,
-                singleLine = true,
-                label = {
-                    Text("Host")
-                },
-            )
+        OutlinedTextField(
+            value = state.host,
+            onValueChange = onHostChanged,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = state.phase != RequestPhase.Sending,
+            singleLine = true,
+            label = {
+                Text("Host")
+            },
+        )
 
-            Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-            OutlinedTextField(
-                value = state.port,
-                onValueChange = onPortChanged,
-                modifier = Modifier.width(100.dp),
-                enabled = state.phase != RequestPhase.Sending,
-                singleLine = true,
-                label = {
-                    Text("Port")
-                },
-            )
-        }
+        OutlinedTextField(
+            value = state.port,
+            onValueChange = onPortChanged,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = state.phase != RequestPhase.Sending,
+            singleLine = true,
+            label = {
+                Text("Port")
+            },
+        )
 
         Spacer(modifier = Modifier.height(12.dp))
 
