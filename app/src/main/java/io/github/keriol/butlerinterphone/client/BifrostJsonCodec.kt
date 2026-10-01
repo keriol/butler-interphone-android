@@ -5,6 +5,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -85,6 +86,139 @@ internal object BifrostJsonCodec {
         }
     }
 
+    fun decodeNodeManifest(
+        statusCode: Int,
+        body: String,
+    ): NodeManifest {
+        val root = parseObject(statusCode, body)
+        val ok = root["ok"]?.jsonPrimitive?.booleanOrNull ?: false
+
+        if (statusCode !in 200..299 || !ok) {
+            val error = root["error"]?.jsonObject
+            throw InterphoneClientException.Remote(
+                code = error?.text("code") ?: "remote_error",
+                message = error?.text("message")
+                    ?: "Bifröst rejected the manifest request.",
+            )
+        }
+
+        val protocolVersion = root["protocol_version"]
+            ?.jsonPrimitive
+            ?.intOrNull
+            ?: throw InterphoneClientException.InvalidResponse(
+                "Bifröst manifest has no protocol version."
+            )
+        val bifrost = root["bifrost"]?.jsonObject
+            ?: throw InterphoneClientException.InvalidResponse(
+                "Bifröst manifest has no Bifröst metadata."
+            )
+        val core = root["core"]?.jsonObject
+            ?: throw InterphoneClientException.InvalidResponse(
+                "Bifröst manifest has no Core metadata."
+            )
+
+        return NodeManifest(
+            protocolVersion = protocolVersion,
+            bifrostVersion = bifrost.text("version")
+                ?: throw InterphoneClientException.InvalidResponse(
+                    "Bifröst manifest has no Bifröst version."
+                ),
+            core = ManifestCore(
+                version = core.text("version")
+                    ?: throw InterphoneClientException.InvalidResponse(
+                        "Bifröst manifest has no Core version."
+                    ),
+                plugins = core.array("plugins").map(::decodePlugin),
+            ),
+            butlers = root.array("butlers").map(::decodeButler),
+        )
+    }
+
+    private fun decodeButler(element: kotlinx.serialization.json.JsonElement): ManifestButler {
+        val item = element.jsonObject
+        return ManifestButler(
+            canonicalName = item.text("canonical_name")
+                ?: throw InterphoneClientException.InvalidResponse(
+                    "Bifröst manifest Butler has no canonical name."
+                ),
+            aliases = item.array("aliases").mapNotNull { alias ->
+                alias.jsonPrimitive.content.trim().takeIf(String::isNotEmpty)
+            },
+            description = item.text("description").orEmpty(),
+            version = item.text("version"),
+            available = item["available"]?.jsonPrimitive?.booleanOrNull ?: false,
+            asgardVersion = item["asgard"]?.jsonObject?.text("version"),
+            entities = item.array("entities").map(::decodeEntity),
+            plugins = item.array("plugins").map(::decodePlugin),
+        )
+    }
+
+    private fun decodeEntity(element: kotlinx.serialization.json.JsonElement): ManifestEntity {
+        val item = element.jsonObject
+        return ManifestEntity(
+            name = item.text("name")
+                ?: throw InterphoneClientException.InvalidResponse(
+                    "Bifröst manifest entity has no name."
+                ),
+            description = item.text("description").orEmpty(),
+            available = item["available"]?.jsonPrimitive?.booleanOrNull ?: false,
+            readiness = item["readiness"]?.jsonObject?.let(::decodeReadiness),
+            methods = item.array("methods").map(::decodeCallable),
+            dependencies = item.array("dependencies").map(::decodeDependency),
+        )
+    }
+
+    private fun decodeCallable(element: kotlinx.serialization.json.JsonElement): ManifestCallable {
+        val item = element.jsonObject
+        return ManifestCallable(
+            name = item.text("name")
+                ?: throw InterphoneClientException.InvalidResponse(
+                    "Bifröst manifest callable has no name."
+                ),
+            description = item.text("description").orEmpty(),
+            available = item["available"]?.jsonPrimitive?.booleanOrNull ?: false,
+            readiness = item["readiness"]?.jsonObject?.let(::decodeReadiness),
+            dependencies = item.array("dependencies").map(::decodeDependency),
+        )
+    }
+
+    private fun decodePlugin(element: kotlinx.serialization.json.JsonElement): ManifestPlugin {
+        val item = element.jsonObject
+        return ManifestPlugin(
+            name = item.text("name")
+                ?: throw InterphoneClientException.InvalidResponse(
+                    "Bifröst manifest plugin has no name."
+                ),
+            version = item.text("version")
+                ?: throw InterphoneClientException.InvalidResponse(
+                    "Bifröst manifest plugin has no version."
+                ),
+            description = item.text("description").orEmpty(),
+            available = item["available"]?.jsonPrimitive?.booleanOrNull ?: false,
+            readiness = item["readiness"]?.jsonObject?.let(::decodeReadiness),
+            dependencies = item.array("dependencies").map(::decodeDependency),
+        )
+    }
+
+    private fun decodeReadiness(item: JsonObject): ManifestReadiness = ManifestReadiness(
+        state = item.text("state")
+            ?: throw InterphoneClientException.InvalidResponse(
+                "Bifröst manifest readiness has no state."
+            ),
+        reasonCode = item.text("reason_code"),
+    )
+
+    private fun decodeDependency(element: kotlinx.serialization.json.JsonElement): ManifestDependency {
+        val item = element.jsonObject
+        return ManifestDependency(
+            name = item.text("name")
+                ?: throw InterphoneClientException.InvalidResponse(
+                    "Bifröst manifest dependency has no name."
+                ),
+            version = item.text("version"),
+        )
+    }
+
     fun decodeResponse(
         expectedRequestId: String,
         statusCode: Int,
@@ -159,6 +293,9 @@ internal object BifrostJsonCodec {
             )
         }
     }
+
+    private fun JsonObject.array(key: String): JsonArray =
+        this[key] as? JsonArray ?: JsonArray(emptyList())
 
     private fun JsonObject.text(
         key: String,
