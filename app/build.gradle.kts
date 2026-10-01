@@ -29,6 +29,11 @@ val buildDate = runtimeValue("INTERPHONE_BUILD_DATE").ifBlank {
     LocalDate.now(ZoneOffset.UTC).toString()
 }
 
+val interphoneVersionCode = runtimeValue("INTERPHONE_VERSION_CODE")
+    .toIntOrNull()
+    ?.takeIf { it > 0 }
+    ?: 1
+
 val releaseKeystorePath = providers.environmentVariable(
     "INTERPHONE_KEYSTORE_PATH"
 ).orNull
@@ -57,7 +62,7 @@ android {
         applicationId = "io.github.keriol.butlerinterphone"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
+        versionCode = interphoneVersionCode
         versionName = "0.0.1.dev0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -146,5 +151,11 @@ dependencies {
 tasks.register("printVersionName") {
     doLast {
         println(android.defaultConfig.versionName)
+    }
+}
+
+tasks.register("printVersionCode") {
+    doLast {
+        println(android.defaultConfig.versionCode)
     }
 }
