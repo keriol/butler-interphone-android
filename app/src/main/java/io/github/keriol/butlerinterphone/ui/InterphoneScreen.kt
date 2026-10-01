@@ -2,19 +2,28 @@ package io.github.keriol.butlerinterphone.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -54,6 +63,15 @@ fun InterphoneRoute(
     )
 }
 
+internal fun isConnectionConfigured(
+    state: InterphoneUiState,
+): Boolean = (
+    state.protocol.isNotBlank()
+        && state.host.isNotBlank()
+        && state.port.isNotBlank()
+        && state.token.isNotBlank()
+)
+
 @Composable
 fun InterphoneScreen(
     buildIdentity: String,
@@ -66,11 +84,17 @@ fun InterphoneScreen(
     onMessageChanged: (String) -> Unit,
     onSend: () -> Unit,
 ) {
+    val connectionConfigured = isConnectionConfigured(state)
+    var showConnectionSettings by remember {
+        mutableStateOf(!connectionConfigured)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
+        verticalArrangement = Arrangement.Top,
     ) {
         Text(
             text = "Butler Interphone",
@@ -81,63 +105,37 @@ fun InterphoneScreen(
             style = MaterialTheme.typography.bodySmall,
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
-        OutlinedTextField(
-            value = state.protocol,
-            onValueChange = onProtocolChanged,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = state.phase != RequestPhase.Sending,
-            singleLine = true,
-            label = {
-                Text("Protocol")
+        Text(
+            text = "Talking to",
+            style = MaterialTheme.typography.labelLarge,
+        )
+        Text(
+            text = state.targetButlerName.trim().ifEmpty {
+                "Butler Core"
             },
-            placeholder = {
-                Text("http")
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Text(
+            text = if (state.targetButlerName.isBlank()) {
+                "No Butler target selected. Requests use the Core-facing path."
+            } else {
+                "Requests are routed to this Butler through Bifröst and Midgard."
             },
+            style = MaterialTheme.typography.bodyMedium,
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        state.sourceButlerName?.let { sourceButlerName ->
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Last response from $sourceButlerName",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
 
-        OutlinedTextField(
-            value = state.host,
-            onValueChange = onHostChanged,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = state.phase != RequestPhase.Sending,
-            singleLine = true,
-            label = {
-                Text("Host")
-            },
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        OutlinedTextField(
-            value = state.port,
-            onValueChange = onPortChanged,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = state.phase != RequestPhase.Sending,
-            singleLine = true,
-            label = {
-                Text("Port")
-            },
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        OutlinedTextField(
-            value = state.token,
-            onValueChange = onTokenChanged,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = state.phase != RequestPhase.Sending,
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            label = {
-                Text("Bearer token")
-            },
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         OutlinedTextField(
             value = state.targetButlerName,
@@ -148,9 +146,34 @@ fun InterphoneScreen(
             label = {
                 Text("Butler target (optional)")
             },
+            supportingText = {
+                Text("Leave blank to use Butler Core")
+            },
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "What this Interphone can do",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "• Send requests to Butler Core when no Butler is selected.\n" +
+                "• Route requests to a specific Butler when you select one.\n" +
+                "• Preserve request correlation and show the responding Butler.",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        Text(
+            text = "Ask",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
 
         OutlinedTextField(
             value = state.message,
@@ -160,17 +183,21 @@ fun InterphoneScreen(
             label = {
                 Text("Message")
             },
+            minLines = 2,
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
         Button(
-            onClick = onSend,
+            onClick = {
+                if (connectionConfigured) {
+                    showConnectionSettings = false
+                }
+                onSend()
+            },
             enabled = (
                 state.phase != RequestPhase.Sending
-                    && state.host.isNotBlank()
-                    && state.port.isNotBlank()
-                    && state.token.isNotBlank()
+                    && connectionConfigured
                     && state.message.isNotBlank()
             ),
         ) {
@@ -183,6 +210,14 @@ fun InterphoneScreen(
             )
         }
 
+        if (!connectionConfigured) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Connection setup is required before sending.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+
         if (state.phase == RequestPhase.Sending) {
             Spacer(modifier = Modifier.height(16.dp))
             CircularProgressIndicator()
@@ -192,14 +227,6 @@ fun InterphoneScreen(
             Spacer(modifier = Modifier.height(20.dp))
             Text(
                 text = "Request ID: $requestId",
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-
-        state.sourceButlerName?.let { sourceButlerName ->
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Source Butler: $sourceButlerName",
                 style = MaterialTheme.typography.bodySmall,
             )
         }
@@ -222,5 +249,105 @@ fun InterphoneScreen(
                 },
             )
         }
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column {
+                Text(
+                    text = "Connection",
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    text = if (connectionConfigured) {
+                        "Configured"
+                    } else {
+                        "Setup required"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+
+            if (connectionConfigured && !showConnectionSettings) {
+                TextButton(
+                    onClick = {
+                        showConnectionSettings = true
+                    },
+                ) {
+                    Text("Edit")
+                }
+            } else if (connectionConfigured) {
+                OutlinedButton(
+                    onClick = {
+                        showConnectionSettings = false
+                    },
+                ) {
+                    Text("Hide")
+                }
+            }
+        }
+
+        if (showConnectionSettings || !connectionConfigured) {
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = state.protocol,
+                onValueChange = onProtocolChanged,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = state.phase != RequestPhase.Sending,
+                singleLine = true,
+                label = {
+                    Text("Protocol")
+                },
+                placeholder = {
+                    Text("http")
+                },
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = state.host,
+                onValueChange = onHostChanged,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = state.phase != RequestPhase.Sending,
+                singleLine = true,
+                label = {
+                    Text("Host")
+                },
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = state.port,
+                onValueChange = onPortChanged,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = state.phase != RequestPhase.Sending,
+                singleLine = true,
+                label = {
+                    Text("Port")
+                },
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = state.token,
+                onValueChange = onTokenChanged,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = state.phase != RequestPhase.Sending,
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                label = {
+                    Text("Bearer token")
+                },
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
