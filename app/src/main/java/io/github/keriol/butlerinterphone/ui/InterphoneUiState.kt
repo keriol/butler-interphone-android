@@ -8,7 +8,9 @@ enum class RequestPhase {
 }
 
 data class InterphoneUiState(
-    val endpoint: String = "",
+    val protocol: String = "http",
+    val host: String = "",
+    val port: String = "",
     val token: String = "",
     val message: String = "",
     val phase: RequestPhase = RequestPhase.Idle,
