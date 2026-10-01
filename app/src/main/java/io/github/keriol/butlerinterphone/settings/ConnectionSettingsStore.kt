@@ -15,6 +15,7 @@ data class BifrostConnectionSettings(
     val host: String = "",
     val port: String = "",
     val token: String = "",
+    val defaultButlerName: String = "",
 )
 
 interface ConnectionSettingsStore {
@@ -42,6 +43,10 @@ class AndroidConnectionSettingsStore(
             host = preferences.getString(KEY_HOST, "").orEmpty(),
             port = preferences.getString(KEY_PORT, "").orEmpty(),
             token = decryptToken(),
+            defaultButlerName = preferences.getString(
+                KEY_DEFAULT_BUTLER,
+                "",
+            ).orEmpty(),
         )
     }
 
@@ -54,6 +59,10 @@ class AndroidConnectionSettingsStore(
             .putString(KEY_PORT, settings.port)
             .putString(KEY_TOKEN_IV, encrypted.first)
             .putString(KEY_TOKEN_CIPHERTEXT, encrypted.second)
+            .putString(
+                KEY_DEFAULT_BUTLER,
+                settings.defaultButlerName,
+            )
             .apply()
     }
 
@@ -141,5 +150,6 @@ class AndroidConnectionSettingsStore(
         const val KEY_PORT = "port"
         const val KEY_TOKEN_IV = "token_iv"
         const val KEY_TOKEN_CIPHERTEXT = "token_ciphertext"
+        const val KEY_DEFAULT_BUTLER = "default_butler"
     }
 }

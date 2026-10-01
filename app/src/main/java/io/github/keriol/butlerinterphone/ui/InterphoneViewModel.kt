@@ -32,6 +32,7 @@ class InterphoneViewModel(
                 host = it.host,
                 port = it.port,
                 token = it.token,
+                targetButlerName = it.defaultButlerName,
             )
         } ?: InterphoneUiState(
             protocol = initialEndpoint.protocol,
@@ -43,6 +44,12 @@ class InterphoneViewModel(
 
     val uiState: StateFlow<InterphoneUiState> =
         _uiState.asStateFlow()
+
+    init {
+        if (hasUsableConnection(_uiState.value)) {
+            refreshButlers()
+        }
+    }
 
     fun onProtocolChanged(protocol: String) {
         _uiState.update {
@@ -86,6 +93,70 @@ class InterphoneViewModel(
                 targetButlerName = targetButlerName,
                 error = null,
             )
+        }
+    }
+
+    fun refreshButlers() {
+        val state = _uiState.value
+        val endpoint = try {
+            BifrostEndpointParts(
+                protocol = state.protocol,
+                host = state.host,
+                port = state.port,
+            ).toBaseUrl()
+        } catch (exc: IllegalArgumentException) {
+            _uiState.update {
+                it.copy(
+                    directoryLoading = false,
+                    directoryError = exc.message ?: "Invalid Bifröst endpoint.",
+                )
+            }
+            return
+        }
+
+        val token = state.token.trim()
+        if (token.isEmpty()) {
+            _uiState.update {
+                it.copy(
+                    directoryLoading = false,
+                    directoryError = "Bifröst token is required.",
+                )
+            }
+            return
+        }
+
+        _uiState.update {
+            it.copy(
+                directoryLoading = true,
+                directoryError = null,
+            )
+        }
+
+        viewModelScope.launch {
+            try {
+                val discovered = clientFactory(endpoint, token)
+                    .listButlers()
+                    .filter { entry -> entry.available }
+
+                _uiState.update {
+                    it.copy(
+                        availableButlers = discovered,
+                        directoryLoading = false,
+                        directoryError = null,
+                    )
+                }
+            } catch (exc: Exception) {
+                _uiState.update {
+                    it.copy(
+                        directoryLoading = false,
+                        directoryError = (
+                            exc.message
+                                ?.takeIf { message -> message.isNotBlank() }
+                                ?: "Could not load Butler directory."
+                        ),
+                    )
+                }
+            }
         }
     }
 
@@ -143,6 +214,7 @@ class InterphoneViewModel(
                 host = state.host.trim(),
                 port = state.port.trim(),
                 token = token,
+                defaultButlerName = state.targetButlerName.trim(),
             )
         )
 
@@ -203,6 +275,15 @@ class InterphoneViewModel(
         }
     }
 }
+
+private fun hasUsableConnection(
+    state: InterphoneUiState,
+): Boolean = (
+    state.protocol.isNotBlank()
+        && state.host.isNotBlank()
+        && state.port.isNotBlank()
+        && state.token.isNotBlank()
+)
 
 class InterphoneViewModelFactory(
     private val clientFactory: (String, String) -> InterphoneClient,

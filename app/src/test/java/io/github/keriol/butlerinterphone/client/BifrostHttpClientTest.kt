@@ -193,4 +193,49 @@ class BifrostHttpClientTest {
             failure.message,
         )
     }
+
+    @Test
+    fun butlerDirectoryIsFetchedFromReadOnlyEndpoint() = runTest {
+        var capturedUrl: String? = null
+
+        val client = BifrostHttpClient(
+            baseUrl = "https://example.test",
+            token = "test-token",
+            getExecutor = HttpGetExecutor { url, _, _ ->
+                capturedUrl = url
+                HttpResponse(
+                    statusCode = 200,
+                    body = """
+                        {
+                          "ok": true,
+                          "butlers": [
+                            {
+                              "canonical_name": "Butler-A",
+                              "aliases": ["A", "Alpha"],
+                              "available": true
+                            },
+                            {
+                              "canonical_name": "Butler-B",
+                              "aliases": [],
+                              "available": false
+                            }
+                          ]
+                        }
+                    """.trimIndent(),
+                )
+            },
+        )
+
+        val result = client.listButlers()
+
+        assertEquals(
+            "https://example.test/bifrost/v1/butlers",
+            capturedUrl,
+        )
+        assertEquals(2, result.size)
+        assertEquals("Butler-A", result[0].canonicalName)
+        assertEquals(listOf("A", "Alpha"), result[0].aliases)
+        assertEquals(true, result[0].available)
+        assertEquals(false, result[1].available)
+    }
 }

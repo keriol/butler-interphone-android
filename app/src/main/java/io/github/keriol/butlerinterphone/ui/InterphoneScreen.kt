@@ -1,6 +1,7 @@
 package io.github.keriol.butlerinterphone.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,6 +13,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -58,6 +61,7 @@ fun InterphoneRoute(
         onPortChanged = viewModel::onPortChanged,
         onTokenChanged = viewModel::onTokenChanged,
         onTargetButlerChanged = viewModel::onTargetButlerChanged,
+        onRefreshButlers = viewModel::refreshButlers,
         onMessageChanged = viewModel::onMessageChanged,
         onSend = viewModel::send,
     )
@@ -81,12 +85,16 @@ fun InterphoneScreen(
     onPortChanged: (String) -> Unit,
     onTokenChanged: (String) -> Unit,
     onTargetButlerChanged: (String) -> Unit,
+    onRefreshButlers: () -> Unit,
     onMessageChanged: (String) -> Unit,
     onSend: () -> Unit,
 ) {
     val connectionConfigured = isConnectionConfigured(state)
     var showConnectionSettings by remember {
         mutableStateOf(!connectionConfigured)
+    }
+    var targetMenuExpanded by remember {
+        mutableStateOf(false)
     }
 
     Column(
@@ -136,20 +144,6 @@ fun InterphoneScreen(
         }
 
         Spacer(modifier = Modifier.height(20.dp))
-
-        OutlinedTextField(
-            value = state.targetButlerName,
-            onValueChange = onTargetButlerChanged,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = state.phase != RequestPhase.Sending,
-            singleLine = true,
-            label = {
-                Text("Butler target (optional)")
-            },
-            supportingText = {
-                Text("Leave blank to use Butler Core")
-            },
-        )
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -291,6 +285,90 @@ fun InterphoneScreen(
         }
 
         if (showConnectionSettings || !connectionConfigured) {
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "Default Butler",
+                style = MaterialTheme.typography.labelLarge,
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Box {
+                    OutlinedButton(
+                        onClick = {
+                            targetMenuExpanded = true
+                        },
+                        enabled = state.phase != RequestPhase.Sending,
+                    ) {
+                        Text(
+                            state.targetButlerName.trim().ifEmpty {
+                                "Butler Core"
+                            }
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = targetMenuExpanded,
+                        onDismissRequest = {
+                            targetMenuExpanded = false
+                        },
+                    ) {
+                        DropdownMenuItem(
+                            text = {
+                                Text("Butler Core")
+                            },
+                            onClick = {
+                                onTargetButlerChanged("")
+                                targetMenuExpanded = false
+                            },
+                        )
+
+                        state.availableButlers.forEach { butler ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(butler.canonicalName)
+                                },
+                                onClick = {
+                                    onTargetButlerChanged(
+                                        butler.canonicalName
+                                    )
+                                    targetMenuExpanded = false
+                                },
+                            )
+                        }
+                    }
+                }
+
+                TextButton(
+                    onClick = onRefreshButlers,
+                    enabled = (
+                        state.phase != RequestPhase.Sending
+                            && !state.directoryLoading
+                            && connectionConfigured
+                    ),
+                ) {
+                    Text(
+                        if (state.directoryLoading) {
+                            "Loading…"
+                        } else {
+                            "Refresh"
+                        }
+                    )
+                }
+            }
+
+            state.directoryError?.let { directoryError ->
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = directoryError,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+
             Spacer(modifier = Modifier.height(12.dp))
 
             OutlinedTextField(

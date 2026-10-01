@@ -11,22 +11,13 @@ class BifrostHttpClient internal constructor(
     private val token: String,
     private val timeoutMillis: Int = 15_000,
     private val executor: HttpExecutor = UrlConnectionHttpExecutor(),
+    private val getExecutor: HttpGetExecutor = UrlConnectionHttpGetExecutor(),
 ) : InterphoneClient {
 
     override suspend fun send(
         request: InterphoneRequest,
     ): InterphoneResponse {
-        val endpoint = baseUrl.trim().trimEnd('/')
-        if (endpoint.isEmpty()) {
-            throw InterphoneClientException.Configuration(
-                "Bifröst endpoint is not configured."
-            )
-        }
-        if (token.isBlank()) {
-            throw InterphoneClientException.Configuration(
-                "Bifröst token is not configured."
-            )
-        }
+        val endpoint = validatedEndpoint()
 
         val response = executor.post(
             url = "$endpoint/bifrost/v1/text",
@@ -40,6 +31,36 @@ class BifrostHttpClient internal constructor(
             statusCode = response.statusCode,
             body = response.body,
         )
+    }
+
+    override suspend fun listButlers(): List<ButlerDirectoryEntry> {
+        val endpoint = validatedEndpoint()
+
+        val response = getExecutor.get(
+            url = "$endpoint/bifrost/v1/butlers",
+            bearerToken = token,
+            timeoutMillis = timeoutMillis,
+        )
+
+        return BifrostJsonCodec.decodeButlerDirectory(
+            statusCode = response.statusCode,
+            body = response.body,
+        )
+    }
+
+    private fun validatedEndpoint(): String {
+        val endpoint = baseUrl.trim().trimEnd('/')
+        if (endpoint.isEmpty()) {
+            throw InterphoneClientException.Configuration(
+                "Bifröst endpoint is not configured."
+            )
+        }
+        if (token.isBlank()) {
+            throw InterphoneClientException.Configuration(
+                "Bifröst token is not configured."
+            )
+        }
+        return endpoint
     }
 }
 
@@ -79,6 +100,14 @@ internal fun interface HttpExecutor {
     ): HttpResponse
 }
 
+internal fun interface HttpGetExecutor {
+    suspend fun get(
+        url: String,
+        bearerToken: String,
+        timeoutMillis: Int,
+    ): HttpResponse
+}
+
 internal class UrlConnectionHttpExecutor : HttpExecutor {
     override suspend fun post(
         url: String,
@@ -86,13 +115,7 @@ internal class UrlConnectionHttpExecutor : HttpExecutor {
         body: String,
         timeoutMillis: Int,
     ): HttpResponse = withContext(Dispatchers.IO) {
-        val connection = try {
-            URL(url).openConnection() as HttpURLConnection
-        } catch (_: Exception) {
-            throw InterphoneClientException.Transport(
-                "Could not open the Bifröst connection."
-            )
-        }
+        val connection = openConnection(url)
 
         try {
             connection.requestMethod = "POST"
@@ -118,22 +141,7 @@ internal class UrlConnectionHttpExecutor : HttpExecutor {
                 writer.write(body)
             }
 
-            val statusCode = connection.responseCode
-            val stream = if (statusCode in 200..299) {
-                connection.inputStream
-            } else {
-                connection.errorStream
-            }
-
-            val responseBody = stream
-                ?.bufferedReader(Charsets.UTF_8)
-                ?.use { it.readText() }
-                .orEmpty()
-
-            HttpResponse(
-                statusCode = statusCode,
-                body = responseBody,
-            )
+            readResponse(connection)
         } catch (_: IOException) {
             throw InterphoneClientException.Transport(
                 "Bifröst request failed."
@@ -142,4 +150,65 @@ internal class UrlConnectionHttpExecutor : HttpExecutor {
             connection.disconnect()
         }
     }
+}
+
+internal class UrlConnectionHttpGetExecutor : HttpGetExecutor {
+    override suspend fun get(
+        url: String,
+        bearerToken: String,
+        timeoutMillis: Int,
+    ): HttpResponse = withContext(Dispatchers.IO) {
+        val connection = openConnection(url)
+
+        try {
+            connection.requestMethod = "GET"
+            connection.connectTimeout = timeoutMillis
+            connection.readTimeout = timeoutMillis
+            connection.setRequestProperty(
+                "Authorization",
+                "Bearer $bearerToken",
+            )
+            connection.setRequestProperty(
+                "Accept",
+                "application/json",
+            )
+
+            readResponse(connection)
+        } catch (_: IOException) {
+            throw InterphoneClientException.Transport(
+                "Bifröst request failed."
+            )
+        } finally {
+            connection.disconnect()
+        }
+    }
+}
+
+private fun openConnection(url: String): HttpURLConnection = try {
+    URL(url).openConnection() as HttpURLConnection
+} catch (_: Exception) {
+    throw InterphoneClientException.Transport(
+        "Could not open the Bifröst connection."
+    )
+}
+
+private fun readResponse(
+    connection: HttpURLConnection,
+): HttpResponse {
+    val statusCode = connection.responseCode
+    val stream = if (statusCode in 200..299) {
+        connection.inputStream
+    } else {
+        connection.errorStream
+    }
+
+    val responseBody = stream
+        ?.bufferedReader(Charsets.UTF_8)
+        ?.use { it.readText() }
+        .orEmpty()
+
+    return HttpResponse(
+        statusCode = statusCode,
+        body = responseBody,
+    )
 }
