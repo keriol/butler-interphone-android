@@ -157,8 +157,6 @@ class BifrostHttpClientTest {
 
         assertEquals("Correlation mismatch.", failure.message)
     }
-}
-
 
     @Test
     fun nonJsonResponseIncludesHttpStatusAndBodyPreview() {
@@ -195,3 +193,4 @@ class BifrostHttpClientTest {
             failure.message,
         )
     }
+}
