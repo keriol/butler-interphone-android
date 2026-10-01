@@ -1,6 +1,7 @@
 package io.github.keriol.butlerinterphone.ui
 
 import io.github.keriol.butlerinterphone.client.ButlerDirectoryEntry
+import io.github.keriol.butlerinterphone.client.NodeManifest
 
 enum class RequestPhase {
     Idle,
@@ -18,6 +19,10 @@ data class InterphoneUiState(
     val availableButlers: List<ButlerDirectoryEntry> = emptyList(),
     val directoryLoading: Boolean = false,
     val directoryError: String? = null,
+    val nodeManifest: NodeManifest? = null,
+    val manifestLoading: Boolean = false,
+    val manifestError: String? = null,
+    val configSaved: Boolean = false,
     val message: String = "",
     val phase: RequestPhase = RequestPhase.Idle,
     val response: String? = null,
