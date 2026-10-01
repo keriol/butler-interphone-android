@@ -1,8 +1,11 @@
 package io.github.keriol.butlerinterphone.ui
 
+import io.github.keriol.butlerinterphone.client.BifrostEndpointParts
 import io.github.keriol.butlerinterphone.client.InterphoneClient
 import io.github.keriol.butlerinterphone.client.InterphoneRequest
 import io.github.keriol.butlerinterphone.client.InterphoneResponse
+import io.github.keriol.butlerinterphone.settings.BifrostConnectionSettings
+import io.github.keriol.butlerinterphone.settings.ConnectionSettingsStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -20,7 +23,7 @@ import org.junit.Test
 class InterphoneViewModelTest {
 
     @Test
-    fun sendUsesRuntimeSettingsAndPreservesTargetlessCorrelation() = runTest {
+    fun sendUsesRuntimeSettingsPersistsThemAndPreservesTargetlessCorrelation() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
 
@@ -29,6 +32,7 @@ class InterphoneViewModelTest {
             var capturedEndpoint: String? = null
             var capturedToken: String? = null
             var capturedRequest: InterphoneRequest? = null
+            val store = FakeSettingsStore()
 
             val clientFactory = { endpoint: String, token: String ->
                 capturedEndpoint = endpoint
@@ -46,7 +50,12 @@ class InterphoneViewModelTest {
 
             val viewModel = InterphoneViewModel(
                 clientFactory = clientFactory,
-                initialEndpoint = "http://example.test:5055",
+                settingsStore = store,
+                initialEndpoint = BifrostEndpointParts(
+                    protocol = "http",
+                    host = "example.test",
+                    port = "5055",
+                ),
                 initialToken = "secret",
                 requestIdFactory = { "req-1" },
             )
@@ -55,17 +64,20 @@ class InterphoneViewModelTest {
             viewModel.send()
             runCurrent()
 
-            assertEquals(
-                RequestPhase.Sending,
-                viewModel.uiState.value.phase,
-            )
-            assertEquals(
-                "req-1",
-                viewModel.uiState.value.requestId,
-            )
+            assertEquals(RequestPhase.Sending, viewModel.uiState.value.phase)
+            assertEquals("req-1", viewModel.uiState.value.requestId)
             assertEquals("http://example.test:5055", capturedEndpoint)
             assertEquals("secret", capturedToken)
             assertNull(capturedRequest?.targetButlerName)
+            assertEquals(
+                BifrostConnectionSettings(
+                    protocol = "http",
+                    host = "example.test",
+                    port = "5055",
+                    token = "secret",
+                ),
+                store.saved,
+            )
 
             pending.complete(
                 InterphoneResponse(
@@ -76,14 +88,8 @@ class InterphoneViewModelTest {
 
             advanceUntilIdle()
 
-            assertEquals(
-                RequestPhase.Success,
-                viewModel.uiState.value.phase,
-            )
-            assertEquals(
-                "Ready.",
-                viewModel.uiState.value.response,
-            )
+            assertEquals(RequestPhase.Success, viewModel.uiState.value.phase)
+            assertEquals("Ready.", viewModel.uiState.value.response)
             assertNull(viewModel.uiState.value.error)
         } finally {
             Dispatchers.resetMain()
@@ -91,50 +97,70 @@ class InterphoneViewModelTest {
     }
 
     @Test
-    fun blankMessageIsRejectedWithoutCreatingClient() = runTest {
+    fun persistedSettingsOverrideBuildDefaults() {
+        val store = FakeSettingsStore(
+            loaded = BifrostConnectionSettings(
+                protocol = "https",
+                host = "saved.test",
+                port = "8443",
+                token = "saved-token",
+            )
+        )
+
+        val viewModel = InterphoneViewModel(
+            clientFactory = { _, _ -> error("unused") },
+            settingsStore = store,
+            initialEndpoint = BifrostEndpointParts(
+                protocol = "http",
+                host = "default.test",
+                port = "5055",
+            ),
+            initialToken = "default-token",
+        )
+
+        assertEquals("https", viewModel.uiState.value.protocol)
+        assertEquals("saved.test", viewModel.uiState.value.host)
+        assertEquals("8443", viewModel.uiState.value.port)
+        assertEquals("saved-token", viewModel.uiState.value.token)
+    }
+
+    @Test
+    fun missingHostIsRejectedWithoutSaving() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
 
         try {
-            var created = false
-
+            val store = FakeSettingsStore()
             val viewModel = InterphoneViewModel(
-                clientFactory = { _, _ ->
-                    created = true
-                    error("client must not be created")
-                },
-                initialEndpoint = "http://example.test:5055",
+                clientFactory = { _, _ -> error("client must not be created") },
+                settingsStore = store,
                 initialToken = "secret",
-                requestIdFactory = { "req-blank" },
             )
 
-            viewModel.onMessageChanged("   ")
+            viewModel.onPortChanged("5055")
+            viewModel.onMessageChanged("hello")
             viewModel.send()
 
-            assertEquals(false, created)
-            assertEquals(
-                RequestPhase.Error,
-                viewModel.uiState.value.phase,
-            )
-            assertEquals(
-                "Message cannot be empty.",
-                viewModel.uiState.value.error,
-            )
+            assertEquals("Bifröst host is required.", viewModel.uiState.value.error)
+            assertNull(store.saved)
         } finally {
             Dispatchers.resetMain()
         }
     }
 
     @Test
-    fun missingEndpointIsRejected() = runTest {
+    fun invalidPortIsRejected() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
 
         try {
             val viewModel = InterphoneViewModel(
-                clientFactory = { _, _ ->
-                    error("client must not be created")
-                },
+                clientFactory = { _, _ -> error("client must not be created") },
+                settingsStore = FakeSettingsStore(),
+                initialEndpoint = BifrostEndpointParts(
+                    host = "example.test",
+                    port = "70000",
+                ),
                 initialToken = "secret",
             )
 
@@ -142,7 +168,7 @@ class InterphoneViewModelTest {
             viewModel.send()
 
             assertEquals(
-                "Bifröst endpoint is required.",
+                "Bifröst port must be between 1 and 65535.",
                 viewModel.uiState.value.error,
             )
         } finally {
@@ -157,10 +183,12 @@ class InterphoneViewModelTest {
 
         try {
             val viewModel = InterphoneViewModel(
-                clientFactory = { _, _ ->
-                    error("client must not be created")
-                },
-                initialEndpoint = "http://example.test:5055",
+                clientFactory = { _, _ -> error("client must not be created") },
+                settingsStore = FakeSettingsStore(),
+                initialEndpoint = BifrostEndpointParts(
+                    host = "example.test",
+                    port = "5055",
+                ),
             )
 
             viewModel.onMessageChanged("hello")
@@ -168,6 +196,40 @@ class InterphoneViewModelTest {
 
             assertEquals(
                 "Bifröst token is required.",
+                viewModel.uiState.value.error,
+            )
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun blankMessageIsRejectedWithoutCreatingClient() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+
+        try {
+            var created = false
+            val viewModel = InterphoneViewModel(
+                clientFactory = { _, _ ->
+                    created = true
+                    error("client must not be created")
+                },
+                settingsStore = FakeSettingsStore(),
+                initialEndpoint = BifrostEndpointParts(
+                    host = "example.test",
+                    port = "5055",
+                ),
+                initialToken = "secret",
+            )
+
+            viewModel.onMessageChanged("   ")
+            viewModel.send()
+
+            assertEquals(false, created)
+            assertEquals(RequestPhase.Error, viewModel.uiState.value.phase)
+            assertEquals(
+                "Message cannot be empty.",
                 viewModel.uiState.value.error,
             )
         } finally {
@@ -192,7 +254,11 @@ class InterphoneViewModelTest {
                         )
                     }
                 },
-                initialEndpoint = "http://example.test:5055",
+                settingsStore = FakeSettingsStore(),
+                initialEndpoint = BifrostEndpointParts(
+                    host = "example.test",
+                    port = "5055",
+                ),
                 initialToken = "secret",
                 requestIdFactory = { "req-2" },
             )
@@ -201,16 +267,25 @@ class InterphoneViewModelTest {
             viewModel.send()
             advanceUntilIdle()
 
-            assertEquals(
-                RequestPhase.Error,
-                viewModel.uiState.value.phase,
-            )
+            assertEquals(RequestPhase.Error, viewModel.uiState.value.phase)
             assertEquals(
                 "Correlation mismatch.",
                 viewModel.uiState.value.error,
             )
         } finally {
             Dispatchers.resetMain()
+        }
+    }
+
+    private class FakeSettingsStore(
+        private val loaded: BifrostConnectionSettings? = null,
+    ) : ConnectionSettingsStore {
+        var saved: BifrostConnectionSettings? = null
+
+        override fun load(): BifrostConnectionSettings? = loaded
+
+        override fun save(settings: BifrostConnectionSettings) {
+            saved = settings
         }
     }
 }
