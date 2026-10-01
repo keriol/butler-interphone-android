@@ -12,6 +12,7 @@ data class InterphoneUiState(
     val host: String = "",
     val port: String = "",
     val token: String = "",
+    val targetButlerName: String = "",
     val message: String = "",
     val phase: RequestPhase = RequestPhase.Idle,
     val response: String? = null,
