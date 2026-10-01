@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -22,15 +23,23 @@ import io.github.keriol.butlerinterphone.client.InterphoneClient
 
 @Composable
 fun InterphoneRoute(
-    client: InterphoneClient,
+    initialEndpoint: String,
+    initialToken: String,
+    clientFactory: (String, String) -> InterphoneClient,
 ) {
     val viewModel: InterphoneViewModel = viewModel(
-        factory = InterphoneViewModelFactory(client),
+        factory = InterphoneViewModelFactory(
+            clientFactory = clientFactory,
+            initialEndpoint = initialEndpoint,
+            initialToken = initialToken,
+        ),
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     InterphoneScreen(
         state = state,
+        onEndpointChanged = viewModel::onEndpointChanged,
+        onTokenChanged = viewModel::onTokenChanged,
         onMessageChanged = viewModel::onMessageChanged,
         onSend = viewModel::send,
     )
@@ -39,6 +48,8 @@ fun InterphoneRoute(
 @Composable
 fun InterphoneScreen(
     state: InterphoneUiState,
+    onEndpointChanged: (String) -> Unit,
+    onTokenChanged: (String) -> Unit,
     onMessageChanged: (String) -> Unit,
     onSend: () -> Unit,
 ) {
@@ -56,6 +67,36 @@ fun InterphoneScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         OutlinedTextField(
+            value = state.endpoint,
+            onValueChange = onEndpointChanged,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = state.phase != RequestPhase.Sending,
+            singleLine = true,
+            label = {
+                Text("Bifröst endpoint")
+            },
+            placeholder = {
+                Text("http://host:port")
+            },
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedTextField(
+            value = state.token,
+            onValueChange = onTokenChanged,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = state.phase != RequestPhase.Sending,
+            singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+            label = {
+                Text("Bearer token")
+            },
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        OutlinedTextField(
             value = state.message,
             onValueChange = onMessageChanged,
             modifier = Modifier.fillMaxWidth(),
@@ -71,6 +112,8 @@ fun InterphoneScreen(
             onClick = onSend,
             enabled = (
                 state.phase != RequestPhase.Sending
+                    && state.endpoint.isNotBlank()
+                    && state.token.isNotBlank()
                     && state.message.isNotBlank()
             ),
         ) {
