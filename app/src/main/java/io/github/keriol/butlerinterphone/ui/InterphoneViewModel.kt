@@ -48,6 +48,7 @@ class InterphoneViewModel(
     init {
         if (hasUsableConnection(_uiState.value)) {
             refreshButlers()
+            refreshManifest()
         }
     }
 
@@ -56,6 +57,7 @@ class InterphoneViewModel(
             it.copy(
                 protocol = protocol,
                 error = null,
+                configSaved = false,
             )
         }
     }
@@ -65,6 +67,7 @@ class InterphoneViewModel(
             it.copy(
                 host = host,
                 error = null,
+                configSaved = false,
             )
         }
     }
@@ -74,6 +77,7 @@ class InterphoneViewModel(
             it.copy(
                 port = port,
                 error = null,
+                configSaved = false,
             )
         }
     }
@@ -83,6 +87,7 @@ class InterphoneViewModel(
             it.copy(
                 token = token,
                 error = null,
+                configSaved = false,
             )
         }
     }
@@ -92,7 +97,109 @@ class InterphoneViewModel(
             it.copy(
                 targetButlerName = targetButlerName,
                 error = null,
+                configSaved = false,
             )
+        }
+    }
+
+    fun saveConfig() {
+        val state = _uiState.value
+        val endpoint = try {
+            BifrostEndpointParts(
+                protocol = state.protocol,
+                host = state.host,
+                port = state.port,
+            ).toBaseUrl()
+        } catch (exc: IllegalArgumentException) {
+            _uiState.update {
+                it.copy(
+                    configSaved = false,
+                    error = exc.message ?: "Invalid Bifröst endpoint.",
+                )
+            }
+            return
+        }
+        if (state.token.trim().isEmpty()) {
+            _uiState.update {
+                it.copy(
+                    configSaved = false,
+                    error = "Bifröst token is required.",
+                )
+            }
+            return
+        }
+
+        persistSettings(state)
+        _uiState.update {
+            it.copy(
+                configSaved = true,
+                error = null,
+            )
+        }
+        refreshButlers()
+        refreshManifest()
+    }
+
+    fun refreshManifest() {
+        val state = _uiState.value
+        val endpoint = try {
+            BifrostEndpointParts(
+                protocol = state.protocol,
+                host = state.host,
+                port = state.port,
+            ).toBaseUrl()
+        } catch (exc: IllegalArgumentException) {
+            _uiState.update {
+                it.copy(
+                    manifestLoading = false,
+                    manifestError = exc.message ?: "Invalid Bifröst endpoint.",
+                )
+            }
+            return
+        }
+
+        val token = state.token.trim()
+        if (token.isEmpty()) {
+            _uiState.update {
+                it.copy(
+                    manifestLoading = false,
+                    manifestError = "Bifröst token is required.",
+                )
+            }
+            return
+        }
+
+        _uiState.update {
+            it.copy(
+                manifestLoading = true,
+                manifestError = null,
+            )
+        }
+
+        viewModelScope.launch {
+            try {
+                val manifest = clientFactory(endpoint, token)
+                    .getNodeManifest()
+                    ?: throw IllegalStateException("Bifröst returned no node manifest.")
+                _uiState.update {
+                    it.copy(
+                        nodeManifest = manifest,
+                        manifestLoading = false,
+                        manifestError = null,
+                    )
+                }
+            } catch (exc: Exception) {
+                _uiState.update {
+                    it.copy(
+                        manifestLoading = false,
+                        manifestError = (
+                            exc.message
+                                ?.takeIf { message -> message.isNotBlank() }
+                                ?: "Could not load node manifest."
+                        ),
+                    )
+                }
+            }
         }
     }
 
@@ -165,6 +272,7 @@ class InterphoneViewModel(
             it.copy(
                 message = message,
                 error = null,
+                configSaved = false,
             )
         }
     }
@@ -208,15 +316,7 @@ class InterphoneViewModel(
             return
         }
 
-        settingsStore.save(
-            BifrostConnectionSettings(
-                protocol = state.protocol.trim().ifEmpty { "http" },
-                host = state.host.trim(),
-                port = state.port.trim(),
-                token = token,
-                defaultButlerName = state.targetButlerName.trim(),
-            )
-        )
+        persistSettings(state)
 
         val requestId = requestIdFactory()
 
@@ -227,6 +327,7 @@ class InterphoneViewModel(
                 response = null,
                 sourceButlerName = null,
                 error = null,
+                configSaved = false,
             )
         }
 
@@ -273,6 +374,18 @@ class InterphoneViewModel(
                 }
             }
         }
+    }
+
+    private fun persistSettings(state: InterphoneUiState) {
+        settingsStore.save(
+            BifrostConnectionSettings(
+                protocol = state.protocol.trim().ifEmpty { "http" },
+                host = state.host.trim(),
+                port = state.port.trim(),
+                token = state.token.trim(),
+                defaultButlerName = state.targetButlerName.trim(),
+            )
+        )
     }
 }
 

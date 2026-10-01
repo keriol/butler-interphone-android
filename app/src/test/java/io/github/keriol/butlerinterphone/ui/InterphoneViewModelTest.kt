@@ -338,6 +338,66 @@ class InterphoneViewModelTest {
         }
     }
 
+    @Test
+    fun manifestLoadsFromConfiguredBifrostWithoutChangingDefaultButler() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+
+        try {
+            val viewModel = InterphoneViewModel(
+                clientFactory = { _, _ ->
+                    object : InterphoneClient {
+                        override suspend fun send(
+                            request: InterphoneRequest,
+                        ): InterphoneResponse = error("unused")
+
+                        override suspend fun listButlers() = emptyList<ButlerDirectoryEntry>()
+
+                        override suspend fun getNodeManifest() =
+                            io.github.keriol.butlerinterphone.client.NodeManifest(
+                                protocolVersion = 1,
+                                bifrostVersion = "0.0.1.dev0",
+                                core = io.github.keriol.butlerinterphone.client.ManifestCore(
+                                    version = "0.2.1.dev0",
+                                ),
+                                butlers = listOf(
+                                    io.github.keriol.butlerinterphone.client.ManifestButler(
+                                        canonicalName = "Alfred",
+                                        aliases = listOf("Alf"),
+                                        available = true,
+                                    )
+                                ),
+                            )
+                    }
+                },
+                settingsStore = FakeSettingsStore(),
+                initialEndpoint = BifrostEndpointParts(
+                    host = "example.test",
+                    port = "5055",
+                ),
+                initialToken = "secret",
+            )
+
+            advanceUntilIdle()
+
+            assertEquals(
+                "0.2.1.dev0",
+                viewModel.uiState.value.nodeManifest?.core?.version,
+            )
+            assertEquals(
+                "Alfred",
+                viewModel.uiState.value.nodeManifest
+                    ?.butlers
+                    ?.single()
+                    ?.canonicalName,
+            )
+            assertEquals("", viewModel.uiState.value.targetButlerName)
+            assertNull(viewModel.uiState.value.manifestError)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
     private class FakeSettingsStore(
         private val loaded: BifrostConnectionSettings? = null,
     ) : ConnectionSettingsStore {

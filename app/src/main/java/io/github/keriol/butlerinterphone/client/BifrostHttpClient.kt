@@ -33,6 +33,21 @@ class BifrostHttpClient internal constructor(
         )
     }
 
+    override suspend fun getNodeManifest(): NodeManifest {
+        val endpoint = validatedEndpoint()
+
+        val response = getExecutor.get(
+            url = "$endpoint/bifrost/v1/manifest",
+            bearerToken = token,
+            timeoutMillis = timeoutMillis,
+        )
+
+        return BifrostJsonCodec.decodeNodeManifest(
+            statusCode = response.statusCode,
+            body = response.body,
+        )
+    }
+
     override suspend fun listButlers(): List<ButlerDirectoryEntry> {
         val endpoint = validatedEndpoint()
 
