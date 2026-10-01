@@ -46,6 +46,7 @@ fun InterphoneRoute(
         onHostChanged = viewModel::onHostChanged,
         onPortChanged = viewModel::onPortChanged,
         onTokenChanged = viewModel::onTokenChanged,
+        onTargetButlerChanged = viewModel::onTargetButlerChanged,
         onMessageChanged = viewModel::onMessageChanged,
         onSend = viewModel::send,
     )
@@ -58,6 +59,7 @@ fun InterphoneScreen(
     onHostChanged: (String) -> Unit,
     onPortChanged: (String) -> Unit,
     onTokenChanged: (String) -> Unit,
+    onTargetButlerChanged: (String) -> Unit,
     onMessageChanged: (String) -> Unit,
     onSend: () -> Unit,
 ) {
@@ -125,6 +127,19 @@ fun InterphoneScreen(
             visualTransformation = PasswordVisualTransformation(),
             label = {
                 Text("Bearer token")
+            },
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedTextField(
+            value = state.targetButlerName,
+            onValueChange = onTargetButlerChanged,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = state.phase != RequestPhase.Sending,
+            singleLine = true,
+            label = {
+                Text("Butler target (optional)")
             },
         )
 
