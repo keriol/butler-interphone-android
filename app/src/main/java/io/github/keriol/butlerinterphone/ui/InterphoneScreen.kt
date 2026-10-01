@@ -93,6 +93,9 @@ fun InterphoneScreen(
     var showConnectionSettings by remember {
         mutableStateOf(!connectionConfigured)
     }
+    var targetMenuExpanded by remember {
+        mutableStateOf(false)
+    }
 
     Column(
         modifier = Modifier
@@ -141,86 +144,6 @@ fun InterphoneScreen(
         }
 
         Spacer(modifier = Modifier.height(20.dp))
-
-        var targetMenuExpanded by remember {
-            mutableStateOf(false)
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Box {
-                OutlinedButton(
-                    onClick = {
-                        targetMenuExpanded = true
-                    },
-                    enabled = state.phase != RequestPhase.Sending,
-                ) {
-                    Text(
-                        state.targetButlerName.trim().ifEmpty {
-                            "Butler Core"
-                        }
-                    )
-                }
-
-                DropdownMenu(
-                    expanded = targetMenuExpanded,
-                    onDismissRequest = {
-                        targetMenuExpanded = false
-                    },
-                ) {
-                    DropdownMenuItem(
-                        text = {
-                            Text("Butler Core")
-                        },
-                        onClick = {
-                            onTargetButlerChanged("")
-                            targetMenuExpanded = false
-                        },
-                    )
-
-                    state.availableButlers.forEach { butler ->
-                        DropdownMenuItem(
-                            text = {
-                                Text(butler.canonicalName)
-                            },
-                            onClick = {
-                                onTargetButlerChanged(
-                                    butler.canonicalName
-                                )
-                                targetMenuExpanded = false
-                            },
-                        )
-                    }
-                }
-            }
-
-            TextButton(
-                onClick = onRefreshButlers,
-                enabled = (
-                    state.phase != RequestPhase.Sending
-                        && !state.directoryLoading
-                        && connectionConfigured
-                ),
-            ) {
-                Text(
-                    if (state.directoryLoading) {
-                        "Loading…"
-                    } else {
-                        "Refresh"
-                    }
-                )
-            }
-        }
-
-        state.directoryError?.let { directoryError ->
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = directoryError,
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -362,6 +285,90 @@ fun InterphoneScreen(
         }
 
         if (showConnectionSettings || !connectionConfigured) {
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "Default Butler",
+                style = MaterialTheme.typography.labelLarge,
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Box {
+                    OutlinedButton(
+                        onClick = {
+                            targetMenuExpanded = true
+                        },
+                        enabled = state.phase != RequestPhase.Sending,
+                    ) {
+                        Text(
+                            state.targetButlerName.trim().ifEmpty {
+                                "Butler Core"
+                            }
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = targetMenuExpanded,
+                        onDismissRequest = {
+                            targetMenuExpanded = false
+                        },
+                    ) {
+                        DropdownMenuItem(
+                            text = {
+                                Text("Butler Core")
+                            },
+                            onClick = {
+                                onTargetButlerChanged("")
+                                targetMenuExpanded = false
+                            },
+                        )
+
+                        state.availableButlers.forEach { butler ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(butler.canonicalName)
+                                },
+                                onClick = {
+                                    onTargetButlerChanged(
+                                        butler.canonicalName
+                                    )
+                                    targetMenuExpanded = false
+                                },
+                            )
+                        }
+                    }
+                }
+
+                TextButton(
+                    onClick = onRefreshButlers,
+                    enabled = (
+                        state.phase != RequestPhase.Sending
+                            && !state.directoryLoading
+                            && connectionConfigured
+                    ),
+                ) {
+                    Text(
+                        if (state.directoryLoading) {
+                            "Loading…"
+                        } else {
+                            "Refresh"
+                        }
+                    )
+                }
+            }
+
+            state.directoryError?.let { directoryError ->
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = directoryError,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+
             Spacer(modifier = Modifier.height(12.dp))
 
             OutlinedTextField(
