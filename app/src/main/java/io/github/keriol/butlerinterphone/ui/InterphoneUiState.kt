@@ -8,6 +8,8 @@ enum class RequestPhase {
 }
 
 data class InterphoneUiState(
+    val endpoint: String = "",
+    val token: String = "",
     val message: String = "",
     val phase: RequestPhase = RequestPhase.Idle,
     val response: String? = null,
