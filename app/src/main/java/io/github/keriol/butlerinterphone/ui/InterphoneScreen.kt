@@ -189,6 +189,14 @@ fun InterphoneScreen(
             )
         }
 
+        state.sourceButlerName?.let { sourceButlerName ->
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Source Butler: $sourceButlerName",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+
         val output = state.response ?: state.error
 
         output?.let { value ->
