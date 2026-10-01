@@ -142,6 +142,10 @@ class InterphoneViewModelTest {
                 RequestPhase.Success,
                 viewModel.uiState.value.phase,
             )
+            assertEquals(
+                "Concrete-Butler",
+                viewModel.uiState.value.sourceButlerName,
+            )
         } finally {
             Dispatchers.resetMain()
         }
