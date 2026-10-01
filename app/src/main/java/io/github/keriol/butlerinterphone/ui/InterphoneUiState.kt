@@ -17,5 +17,6 @@ data class InterphoneUiState(
     val phase: RequestPhase = RequestPhase.Idle,
     val response: String? = null,
     val requestId: String? = null,
+    val sourceButlerName: String? = null,
     val error: String? = null,
 )
