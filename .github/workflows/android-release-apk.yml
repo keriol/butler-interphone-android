@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   release-apk:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
@@ -88,13 +88,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          VERSION="$(gradle -q :app:printVersionName)"
+          BUILD_DATE="$(date -u +%F)"
+          VERSION_LABEL="${VERSION/.dev/-dev}"
           mkdir -p release-artifact
-          cp             app/build/outputs/apk/release/app-release.apk             release-artifact/butler-interphone.apk
+          cp             app/build/outputs/apk/release/app-release.apk             "release-artifact/Butler-Interphone-${VERSION_LABEL}-${BUILD_DATE}.apk"
 
       - name: Upload signed release APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: butler-interphone-release-${{ github.sha }}
-          path: release-artifact/butler-interphone.apk
+          name: Butler-Interphone-release-${{ github.sha }}
+          path: release-artifact/Butler-Interphone-*.apk
           if-no-files-found: error
           retention-days: 14
