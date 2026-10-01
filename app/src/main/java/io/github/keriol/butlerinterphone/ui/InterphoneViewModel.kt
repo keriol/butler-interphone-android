@@ -32,6 +32,7 @@ class InterphoneViewModel(
                 host = it.host,
                 port = it.port,
                 token = it.token,
+                targetButlerName = it.defaultButlerName,
             )
         } ?: InterphoneUiState(
             protocol = initialEndpoint.protocol,
@@ -213,6 +214,7 @@ class InterphoneViewModel(
                 host = state.host.trim(),
                 port = state.port.trim(),
                 token = token,
+                defaultButlerName = state.targetButlerName.trim(),
             )
         )
 
