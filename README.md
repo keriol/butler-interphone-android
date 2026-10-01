@@ -75,6 +75,28 @@ The URL is the Bifröst host base URL. The client appends
 For local proving, \`~/.gradle/gradle.properties\` is convenient because it
 remains outside the repository.
 
+
+## Release signing
+
+Debug CI remains intentionally secret-free. Installable release APKs use a
+separate workflow and one stable signing identity so future releases can
+upgrade an existing installation in place.
+
+The release workflow expects these GitHub Actions secrets:
+
+```text
+INTERPHONE_KEYSTORE_B64
+INTERPHONE_KEYSTORE_PASSWORD
+INTERPHONE_KEY_ALIAS
+INTERPHONE_KEY_PASSWORD
+```
+
+The keystore must never be committed. Store its base64 representation only as a
+repository secret. The workflow materializes it in the ephemeral runner,
+builds the release APK, verifies the APK signature with `apksigner`, and
+uploads only the signed APK artifact.
+
+
 ## Android stack
 
 - Android Gradle Plugin 9.4.0;
