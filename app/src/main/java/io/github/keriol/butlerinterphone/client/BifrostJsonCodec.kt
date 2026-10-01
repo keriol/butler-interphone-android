@@ -1,9 +1,11 @@
 package io.github.keriol.butlerinterphone.client
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -26,6 +28,62 @@ internal object BifrostJsonCodec {
                 put("target_butler_name", it)
             }
     }.toString()
+
+
+
+    fun decodeButlerDirectory(
+        statusCode: Int,
+        body: String,
+    ): List<ButlerDirectoryEntry> {
+        val root = parseObject(statusCode, body)
+        val ok = root["ok"]
+            ?.jsonPrimitive
+            ?.booleanOrNull
+            ?: false
+
+        if (statusCode !in 200..299 || !ok) {
+            val error = root["error"]?.jsonObject
+            val code = error?.text("code") ?: "remote_error"
+            val message = error?.text("message")
+                ?: "Bifröst rejected the directory request."
+
+            throw InterphoneClientException.Remote(
+                code = code,
+                message = message,
+            )
+        }
+
+        val items = root["butlers"]?.jsonArray
+            ?: throw InterphoneClientException.InvalidResponse(
+                "Bifröst directory response has no butlers list."
+            )
+
+        return items.map { element ->
+            val entry = element.jsonObject
+            val canonicalName = entry.text("canonical_name")
+                ?: throw InterphoneClientException.InvalidResponse(
+                    "Bifröst directory entry has no canonical name."
+                )
+            val aliases = entry["aliases"]
+                ?.jsonArray
+                ?.mapNotNull { alias ->
+                    alias.jsonPrimitive.content
+                        .trim()
+                        .takeIf { it.isNotEmpty() }
+                }
+                .orEmpty()
+            val available = entry["available"]
+                ?.jsonPrimitive
+                ?.booleanOrNull
+                ?: false
+
+            ButlerDirectoryEntry(
+                canonicalName = canonicalName,
+                aliases = aliases,
+                available = available,
+            )
+        }
+    }
 
     fun decodeResponse(
         expectedRequestId: String,
