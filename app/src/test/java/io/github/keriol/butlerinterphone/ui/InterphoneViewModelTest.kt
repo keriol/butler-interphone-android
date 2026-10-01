@@ -344,8 +344,6 @@ class InterphoneViewModelTest {
             saved = settings
         }
     }
-}
-
 
     @Test
     fun directoryLoadsAvailableButlersWithoutSelectingFirstOne() = runTest {
@@ -397,3 +395,4 @@ class InterphoneViewModelTest {
             Dispatchers.resetMain()
         }
     }
+}
