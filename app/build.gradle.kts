@@ -1,3 +1,5 @@
+import java.time.LocalDate
+import java.time.ZoneOffset
 import java.util.Properties
 
 plugins {
@@ -24,7 +26,7 @@ fun quoted(value: String): String =
         .replace("\"", "\\\"") + "\""
 
 val buildDate = runtimeValue("INTERPHONE_BUILD_DATE").ifBlank {
-    java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString()
+    LocalDate.now(ZoneOffset.UTC).toString()
 }
 
 val releaseKeystorePath = providers.environmentVariable(
