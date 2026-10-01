@@ -238,4 +238,62 @@ class BifrostHttpClientTest {
         assertEquals(true, result[0].available)
         assertEquals(false, result[1].available)
     }
+
+    @Test
+    fun nodeManifestIsFetchedAndDecodedWithoutInventingMetadata() = runTest {
+        var capturedUrl: String? = null
+
+        val client = BifrostHttpClient(
+            baseUrl = "https://example.test",
+            token = "test-token",
+            getExecutor = HttpGetExecutor { url, _, _ ->
+                capturedUrl = url
+                HttpResponse(
+                    statusCode = 200,
+                    body = """
+                        {
+                          "ok": true,
+                          "protocol_version": 1,
+                          "bifrost": {"version": "0.0.1.dev0"},
+                          "core": {
+                            "version": "0.2.1.dev0",
+                            "plugins": [
+                              {
+                                "name": "Midgard",
+                                "version": "0.0.1.dev0",
+                                "available": true
+                              }
+                            ]
+                          },
+                          "butlers": [
+                            {
+                              "canonical_name": "Alfred",
+                              "aliases": ["Alf"],
+                              "description": "",
+                              "available": true,
+                              "entities": [],
+                              "plugins": []
+                            }
+                          ]
+                        }
+                    """.trimIndent(),
+                )
+            },
+        )
+
+        val manifest = client.getNodeManifest()
+
+        assertEquals(
+            "https://example.test/bifrost/v1/manifest",
+            capturedUrl,
+        )
+        assertEquals(1, manifest.protocolVersion)
+        assertEquals("0.0.1.dev0", manifest.bifrostVersion)
+        assertEquals("0.2.1.dev0", manifest.core.version)
+        assertEquals("Midgard", manifest.core.plugins.single().name)
+        assertEquals("Alfred", manifest.butlers.single().canonicalName)
+        assertEquals(listOf("Alf"), manifest.butlers.single().aliases)
+        assertEquals(emptyList<ManifestEntity>(), manifest.butlers.single().entities)
+        assertEquals(emptyList<ManifestPlugin>(), manifest.butlers.single().plugins)
+    }
 }
