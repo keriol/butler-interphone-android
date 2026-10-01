@@ -23,6 +23,10 @@ fun quoted(value: String): String =
         .replace("\\", "\\\\")
         .replace("\"", "\\\"") + "\""
 
+val buildDate = runtimeValue("INTERPHONE_BUILD_DATE").ifBlank {
+    java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString()
+}
+
 val releaseKeystorePath = providers.environmentVariable(
     "INTERPHONE_KEYSTORE_PATH"
 ).orNull
@@ -65,6 +69,11 @@ android {
             "String",
             "BIFROST_TOKEN",
             quoted(runtimeValue("INTERPHONE_BIFROST_TOKEN")),
+        )
+        buildConfigField(
+            "String",
+            "BUILD_DATE",
+            quoted(buildDate),
         )
     }
 
