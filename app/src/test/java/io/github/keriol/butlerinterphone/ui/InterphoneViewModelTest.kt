@@ -1,6 +1,7 @@
 package io.github.keriol.butlerinterphone.ui
 
 import io.github.keriol.butlerinterphone.client.BifrostEndpointParts
+import io.github.keriol.butlerinterphone.client.ButlerDirectoryEntry
 import io.github.keriol.butlerinterphone.client.InterphoneClient
 import io.github.keriol.butlerinterphone.client.InterphoneRequest
 import io.github.keriol.butlerinterphone.client.InterphoneResponse
@@ -344,3 +345,55 @@ class InterphoneViewModelTest {
         }
     }
 }
+
+
+    @Test
+    fun directoryLoadsAvailableButlersWithoutSelectingFirstOne() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+
+        try {
+            val viewModel = InterphoneViewModel(
+                clientFactory = { _, _ ->
+                    object : InterphoneClient {
+                        override suspend fun send(
+                            request: InterphoneRequest,
+                        ): InterphoneResponse = error("unused")
+
+                        override suspend fun listButlers() = listOf(
+                            ButlerDirectoryEntry(
+                                canonicalName = "Butler-A",
+                                aliases = listOf("A"),
+                                available = true,
+                            ),
+                            ButlerDirectoryEntry(
+                                canonicalName = "Butler-B",
+                                available = false,
+                            ),
+                        )
+                    }
+                },
+                settingsStore = FakeSettingsStore(),
+                initialEndpoint = BifrostEndpointParts(
+                    host = "example.test",
+                    port = "5055",
+                ),
+                initialToken = "secret",
+            )
+
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf("Butler-A"),
+                viewModel.uiState.value.availableButlers
+                    .map { it.canonicalName },
+            )
+            assertEquals(
+                "",
+                viewModel.uiState.value.targetButlerName,
+            )
+            assertNull(viewModel.uiState.value.directoryError)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
