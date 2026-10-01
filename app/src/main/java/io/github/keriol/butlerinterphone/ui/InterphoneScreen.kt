@@ -2,6 +2,8 @@ package io.github.keriol.butlerinterphone.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,17 +21,21 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import io.github.keriol.butlerinterphone.client.BifrostEndpointParts
 import io.github.keriol.butlerinterphone.client.InterphoneClient
+import io.github.keriol.butlerinterphone.settings.ConnectionSettingsStore
 
 @Composable
 fun InterphoneRoute(
-    initialEndpoint: String,
+    initialEndpoint: BifrostEndpointParts,
     initialToken: String,
+    settingsStore: ConnectionSettingsStore,
     clientFactory: (String, String) -> InterphoneClient,
 ) {
     val viewModel: InterphoneViewModel = viewModel(
         factory = InterphoneViewModelFactory(
             clientFactory = clientFactory,
+            settingsStore = settingsStore,
             initialEndpoint = initialEndpoint,
             initialToken = initialToken,
         ),
@@ -38,7 +44,9 @@ fun InterphoneRoute(
 
     InterphoneScreen(
         state = state,
-        onEndpointChanged = viewModel::onEndpointChanged,
+        onProtocolChanged = viewModel::onProtocolChanged,
+        onHostChanged = viewModel::onHostChanged,
+        onPortChanged = viewModel::onPortChanged,
         onTokenChanged = viewModel::onTokenChanged,
         onMessageChanged = viewModel::onMessageChanged,
         onSend = viewModel::send,
@@ -48,7 +56,9 @@ fun InterphoneRoute(
 @Composable
 fun InterphoneScreen(
     state: InterphoneUiState,
-    onEndpointChanged: (String) -> Unit,
+    onProtocolChanged: (String) -> Unit,
+    onHostChanged: (String) -> Unit,
+    onPortChanged: (String) -> Unit,
     onTokenChanged: (String) -> Unit,
     onMessageChanged: (String) -> Unit,
     onSend: () -> Unit,
@@ -66,19 +76,49 @@ fun InterphoneScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        OutlinedTextField(
-            value = state.endpoint,
-            onValueChange = onEndpointChanged,
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            enabled = state.phase != RequestPhase.Sending,
-            singleLine = true,
-            label = {
-                Text("Bifröst endpoint")
-            },
-            placeholder = {
-                Text("http://host:port")
-            },
-        )
+        ) {
+            OutlinedTextField(
+                value = state.protocol,
+                onValueChange = onProtocolChanged,
+                modifier = Modifier.width(110.dp),
+                enabled = state.phase != RequestPhase.Sending,
+                singleLine = true,
+                label = {
+                    Text("Protocol")
+                },
+                placeholder = {
+                    Text("http")
+                },
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            OutlinedTextField(
+                value = state.host,
+                onValueChange = onHostChanged,
+                modifier = Modifier.weight(1f),
+                enabled = state.phase != RequestPhase.Sending,
+                singleLine = true,
+                label = {
+                    Text("Host")
+                },
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            OutlinedTextField(
+                value = state.port,
+                onValueChange = onPortChanged,
+                modifier = Modifier.width(100.dp),
+                enabled = state.phase != RequestPhase.Sending,
+                singleLine = true,
+                label = {
+                    Text("Port")
+                },
+            )
+        }
 
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -112,7 +152,8 @@ fun InterphoneScreen(
             onClick = onSend,
             enabled = (
                 state.phase != RequestPhase.Sending
-                    && state.endpoint.isNotBlank()
+                    && state.host.isNotBlank()
+                    && state.port.isNotBlank()
                     && state.token.isNotBlank()
                     && state.message.isNotBlank()
             ),
