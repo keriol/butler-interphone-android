@@ -3,8 +3,11 @@ package io.github.keriol.butlerinterphone.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import io.github.keriol.butlerinterphone.client.BifrostEndpointParts
 import io.github.keriol.butlerinterphone.client.InterphoneClient
 import io.github.keriol.butlerinterphone.client.InterphoneRequest
+import io.github.keriol.butlerinterphone.settings.BifrostConnectionSettings
+import io.github.keriol.butlerinterphone.settings.ConnectionSettingsStore
 import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,7 +17,8 @@ import kotlinx.coroutines.launch
 
 class InterphoneViewModel(
     private val clientFactory: (String, String) -> InterphoneClient,
-    initialEndpoint: String = "",
+    private val settingsStore: ConnectionSettingsStore,
+    initialEndpoint: BifrostEndpointParts = BifrostEndpointParts(),
     initialToken: String = "",
     private val requestIdFactory: () -> String = {
         UUID.randomUUID().toString()
@@ -22,8 +26,17 @@ class InterphoneViewModel(
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
-        InterphoneUiState(
-            endpoint = initialEndpoint,
+        settingsStore.load()?.let {
+            InterphoneUiState(
+                protocol = it.protocol,
+                host = it.host,
+                port = it.port,
+                token = it.token,
+            )
+        } ?: InterphoneUiState(
+            protocol = initialEndpoint.protocol,
+            host = initialEndpoint.host,
+            port = initialEndpoint.port,
             token = initialToken,
         )
     )
@@ -31,10 +44,28 @@ class InterphoneViewModel(
     val uiState: StateFlow<InterphoneUiState> =
         _uiState.asStateFlow()
 
-    fun onEndpointChanged(endpoint: String) {
+    fun onProtocolChanged(protocol: String) {
         _uiState.update {
             it.copy(
-                endpoint = endpoint,
+                protocol = protocol,
+                error = null,
+            )
+        }
+    }
+
+    fun onHostChanged(host: String) {
+        _uiState.update {
+            it.copy(
+                host = host,
+                error = null,
+            )
+        }
+    }
+
+    fun onPortChanged(port: String) {
+        _uiState.update {
+            it.copy(
+                port = port,
                 error = null,
             )
         }
@@ -60,12 +91,26 @@ class InterphoneViewModel(
 
     fun send() {
         val state = _uiState.value
-        val endpoint = state.endpoint.trim()
         val token = state.token.trim()
         val message = state.message.trim()
+        val endpoint = try {
+            BifrostEndpointParts(
+                protocol = state.protocol,
+                host = state.host,
+                port = state.port,
+            ).toBaseUrl()
+        } catch (exc: IllegalArgumentException) {
+            _uiState.update {
+                it.copy(
+                    phase = RequestPhase.Error,
+                    error = exc.message ?: "Invalid Bifröst endpoint.",
+                    response = null,
+                )
+            }
+            return
+        }
 
         val validationError = when {
-            endpoint.isEmpty() -> "Bifröst endpoint is required."
             token.isEmpty() -> "Bifröst token is required."
             message.isEmpty() -> "Message cannot be empty."
             else -> null
@@ -81,6 +126,15 @@ class InterphoneViewModel(
             }
             return
         }
+
+        settingsStore.save(
+            BifrostConnectionSettings(
+                protocol = state.protocol.trim().ifEmpty { "http" },
+                host = state.host.trim(),
+                port = state.port.trim(),
+                token = token,
+            )
+        )
 
         val requestId = requestIdFactory()
 
@@ -139,7 +193,8 @@ class InterphoneViewModel(
 
 class InterphoneViewModelFactory(
     private val clientFactory: (String, String) -> InterphoneClient,
-    private val initialEndpoint: String,
+    private val settingsStore: ConnectionSettingsStore,
+    private val initialEndpoint: BifrostEndpointParts,
     private val initialToken: String,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
@@ -153,6 +208,7 @@ class InterphoneViewModelFactory(
         )
         return InterphoneViewModel(
             clientFactory = clientFactory,
+            settingsStore = settingsStore,
             initialEndpoint = initialEndpoint,
             initialToken = initialToken,
         ) as T
