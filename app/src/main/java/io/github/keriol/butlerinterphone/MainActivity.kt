@@ -14,17 +14,21 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val client = BifrostHttpClient(
-            baseUrl = BuildConfig.BIFROST_URL,
-            token = BuildConfig.BIFROST_TOKEN,
-        )
-
         setContent {
             MaterialTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    InterphoneRoute(client = client)
+                    InterphoneRoute(
+                        initialEndpoint = BuildConfig.BIFROST_URL,
+                        initialToken = BuildConfig.BIFROST_TOKEN,
+                        clientFactory = { endpoint, token ->
+                            BifrostHttpClient(
+                                baseUrl = endpoint,
+                                token = token,
+                            )
+                        },
+                    )
                 }
             }
         }
