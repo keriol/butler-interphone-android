@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
@@ -47,10 +47,20 @@ jobs:
       - name: Build debug APK
         run: gradle --no-daemon assembleDebug
 
+      - name: Stage versioned debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(gradle -q :app:printVersionName)"
+          BUILD_DATE="$(date -u +%F)"
+          VERSION_LABEL="${VERSION/.dev/-dev}"
+          mkdir -p staged-apk
+          cp             app/build/outputs/apk/debug/app-debug.apk             "staged-apk/Butler-Interphone-${VERSION_LABEL}-${BUILD_DATE}.apk"
+
       - name: Upload debug APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: butler-interphone-debug-${{ github.sha }}
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: Butler-Interphone-${{ github.sha }}
+          path: staged-apk/Butler-Interphone-*.apk
           if-no-files-found: error
           retention-days: 7
