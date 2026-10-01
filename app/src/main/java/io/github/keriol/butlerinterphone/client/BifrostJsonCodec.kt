@@ -32,7 +32,7 @@ internal object BifrostJsonCodec {
         statusCode: Int,
         body: String,
     ): InterphoneResponse {
-        val root = parseObject(body)
+        val root = parseObject(statusCode, body)
         val requestId = root.text("request_id")
 
         if (requestId != null && requestId != expectedRequestId) {
@@ -74,18 +74,30 @@ internal object BifrostJsonCodec {
         )
     }
 
-    private fun parseObject(body: String): JsonObject {
+    private fun parseObject(
+        statusCode: Int,
+        body: String,
+    ): JsonObject {
         if (body.isBlank()) {
             throw InterphoneClientException.InvalidResponse(
-                "Bifröst returned an empty response."
+                "Bifröst returned an empty response (HTTP $statusCode)."
             )
         }
 
         return try {
             json.parseToJsonElement(body).jsonObject
         } catch (_: Exception) {
+            val preview = body
+                .replace(
+                    Regex("(?i)Bearer\\s+\\S+"),
+                    "Bearer [redacted]",
+                )
+                .replace(Regex("\\s+"), " ")
+                .trim()
+                .take(240)
+
             throw InterphoneClientException.InvalidResponse(
-                "Bifröst returned invalid JSON."
+                "Bifröst returned invalid JSON (HTTP $statusCode): $preview"
             )
         }
     }

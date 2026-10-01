@@ -139,19 +139,22 @@ fun InterphoneScreen(
             )
         }
 
-        state.response?.let { response ->
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = response,
-                style = MaterialTheme.typography.bodyLarge,
-            )
-        }
+        val output = state.response ?: state.error
 
-        state.error?.let { error ->
+        output?.let { value ->
             Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = error,
-                color = MaterialTheme.colorScheme.error,
+            OutlinedTextField(
+                value = value,
+                onValueChange = {},
+                modifier = Modifier.fillMaxWidth(),
+                readOnly = true,
+                label = {
+                    Text("Output")
+                },
+                minLines = 3,
+                supportingText = {
+                    Text("Long-press to select and copy")
+                },
             )
         }
     }
