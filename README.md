@@ -164,3 +164,15 @@ See [Architecture](docs/architecture.md), [Contributing](CONTRIBUTING.md), and
 ## License
 
 Apache License 2.0.
+
+## Installing on Android devices
+
+GitHub Actions publishes two different APK channels:
+
+- **DEBUG** artifacts come from ordinary Android CI. They are for development/testing only and are not a supported upgrade path on a device.
+- **STABLE** artifacts come from the Android Release APK workflow. They are signed with the repository's persistent release keystore and use a monotonically increasing Android `versionCode`.
+
+Use only **STABLE** artifacts for normal installation and upgrades on a phone.
+
+A device that already has a pre-INT-013 debug build may require one uninstall before the first STABLE installation because Android does not allow an installed package to change signing certificate. After that first STABLE installation, later STABLE builds are intended to install as in-place upgrades.
+

@@ -55,12 +55,12 @@ jobs:
           BUILD_DATE="$(date -u +%F)"
           VERSION_LABEL="${VERSION/.dev/-dev}"
           mkdir -p staged-apk
-          cp             app/build/outputs/apk/debug/app-debug.apk             "staged-apk/Butler-Interphone-${VERSION_LABEL}-${BUILD_DATE}.apk"
+          cp             app/build/outputs/apk/debug/app-debug.apk             "staged-apk/Butler-Interphone-DEBUG-${VERSION_LABEL}-${BUILD_DATE}.apk"
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v7
         with:
-          name: Butler-Interphone-${{ github.sha }}
-          path: staged-apk/Butler-Interphone-*.apk
+          name: Butler-Interphone-DEBUG-${{ github.sha }}
+          path: staged-apk/Butler-Interphone-DEBUG-*.apk
           if-no-files-found: error
           retention-days: 7
