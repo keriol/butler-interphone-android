@@ -13,18 +13,41 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class InterphoneViewModel(
-    private val client: InterphoneClient,
+    private val clientFactory: (String, String) -> InterphoneClient,
+    initialEndpoint: String = "",
+    initialToken: String = "",
     private val requestIdFactory: () -> String = {
         UUID.randomUUID().toString()
     },
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
-        InterphoneUiState()
+        InterphoneUiState(
+            endpoint = initialEndpoint,
+            token = initialToken,
+        )
     )
 
     val uiState: StateFlow<InterphoneUiState> =
         _uiState.asStateFlow()
+
+    fun onEndpointChanged(endpoint: String) {
+        _uiState.update {
+            it.copy(
+                endpoint = endpoint,
+                error = null,
+            )
+        }
+    }
+
+    fun onTokenChanged(token: String) {
+        _uiState.update {
+            it.copy(
+                token = token,
+                error = null,
+            )
+        }
+    }
 
     fun onMessageChanged(message: String) {
         _uiState.update {
@@ -36,13 +59,23 @@ class InterphoneViewModel(
     }
 
     fun send() {
-        val message = _uiState.value.message.trim()
+        val state = _uiState.value
+        val endpoint = state.endpoint.trim()
+        val token = state.token.trim()
+        val message = state.message.trim()
 
-        if (message.isEmpty()) {
+        val validationError = when {
+            endpoint.isEmpty() -> "Bifröst endpoint is required."
+            token.isEmpty() -> "Bifröst token is required."
+            message.isEmpty() -> "Message cannot be empty."
+            else -> null
+        }
+
+        if (validationError != null) {
             _uiState.update {
                 it.copy(
                     phase = RequestPhase.Error,
-                    error = "Message cannot be empty.",
+                    error = validationError,
                     response = null,
                 )
             }
@@ -62,6 +95,7 @@ class InterphoneViewModel(
 
         viewModelScope.launch {
             try {
+                val client = clientFactory(endpoint, token)
                 val response = client.send(
                     InterphoneRequest(
                         requestId = requestId,
@@ -104,7 +138,9 @@ class InterphoneViewModel(
 }
 
 class InterphoneViewModelFactory(
-    private val client: InterphoneClient,
+    private val clientFactory: (String, String) -> InterphoneClient,
+    private val initialEndpoint: String,
+    private val initialToken: String,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(
@@ -115,6 +151,10 @@ class InterphoneViewModelFactory(
                 InterphoneViewModel::class.java
             )
         )
-        return InterphoneViewModel(client) as T
+        return InterphoneViewModel(
+            clientFactory = clientFactory,
+            initialEndpoint = initialEndpoint,
+            initialToken = initialToken,
+        ) as T
     }
 }
