@@ -6,7 +6,7 @@ import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class BifrostHttpClient(
+class BifrostHttpClient internal constructor(
     private val baseUrl: String,
     private val token: String,
     private val timeoutMillis: Int = 15_000,
