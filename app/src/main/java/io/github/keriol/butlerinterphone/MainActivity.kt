@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import io.github.keriol.butlerinterphone.client.BifrostEndpointParts
 import io.github.keriol.butlerinterphone.client.BifrostHttpClient
+import io.github.keriol.butlerinterphone.settings.AndroidConnectionSettingsStore
 import io.github.keriol.butlerinterphone.ui.InterphoneRoute
 
 class MainActivity : ComponentActivity() {
@@ -20,8 +22,13 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     InterphoneRoute(
-                        initialEndpoint = BuildConfig.BIFROST_URL,
+                        initialEndpoint = BifrostEndpointParts.fromUrl(
+                            BuildConfig.BIFROST_URL
+                        ),
                         initialToken = BuildConfig.BIFROST_TOKEN,
+                        settingsStore = AndroidConnectionSettingsStore(
+                            applicationContext
+                        ),
                         clientFactory = { endpoint, token ->
                             BifrostHttpClient(
                                 baseUrl = endpoint,
