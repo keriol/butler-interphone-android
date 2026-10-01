@@ -23,6 +23,26 @@ fun quoted(value: String): String =
         .replace("\\", "\\\\")
         .replace("\"", "\\\"") + "\""
 
+val releaseKeystorePath = providers.environmentVariable(
+    "INTERPHONE_KEYSTORE_PATH"
+).orNull
+val releaseKeystorePassword = providers.environmentVariable(
+    "INTERPHONE_KEYSTORE_PASSWORD"
+).orNull
+val releaseKeyAlias = providers.environmentVariable(
+    "INTERPHONE_KEY_ALIAS"
+).orNull
+val releaseKeyPassword = providers.environmentVariable(
+    "INTERPHONE_KEY_PASSWORD"
+).orNull
+
+val releaseSigningConfigured = listOf(
+    releaseKeystorePath,
+    releaseKeystorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "io.github.keriol.butlerinterphone"
     compileSdk = 36
@@ -46,6 +66,31 @@ android {
             "BIFROST_TOKEN",
             quoted(runtimeValue("INTERPHONE_BIFROST_TOKEN")),
         )
+    }
+
+    signingConfigs {
+        if (releaseSigningConfigured) {
+            create("release") {
+                storeFile = rootProject.file(
+                    checkNotNull(releaseKeystorePath)
+                )
+                storePassword = checkNotNull(
+                    releaseKeystorePassword
+                )
+                keyAlias = checkNotNull(releaseKeyAlias)
+                keyPassword = checkNotNull(
+                    releaseKeyPassword
+                )
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            if (releaseSigningConfigured) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
     }
 
     buildFeatures {
