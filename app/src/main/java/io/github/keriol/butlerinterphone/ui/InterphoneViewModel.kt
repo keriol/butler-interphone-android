@@ -80,6 +80,15 @@ class InterphoneViewModel(
         }
     }
 
+    fun onTargetButlerChanged(targetButlerName: String) {
+        _uiState.update {
+            it.copy(
+                targetButlerName = targetButlerName,
+                error = null,
+            )
+        }
+    }
+
     fun onMessageChanged(message: String) {
         _uiState.update {
             it.copy(
@@ -93,6 +102,7 @@ class InterphoneViewModel(
         val state = _uiState.value
         val token = state.token.trim()
         val message = state.message.trim()
+        val targetButlerName = state.targetButlerName.trim().ifEmpty { null }
         val endpoint = try {
             BifrostEndpointParts(
                 protocol = state.protocol,
@@ -143,6 +153,7 @@ class InterphoneViewModel(
                 phase = RequestPhase.Sending,
                 requestId = requestId,
                 response = null,
+                sourceButlerName = null,
                 error = null,
             )
         }
@@ -154,6 +165,7 @@ class InterphoneViewModel(
                     InterphoneRequest(
                         requestId = requestId,
                         message = message,
+                        targetButlerName = targetButlerName,
                     )
                 )
 
@@ -171,6 +183,7 @@ class InterphoneViewModel(
                     it.copy(
                         phase = RequestPhase.Success,
                         response = response.response,
+                        sourceButlerName = response.sourceButlerName,
                         error = null,
                     )
                 }

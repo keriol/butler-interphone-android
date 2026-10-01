@@ -46,6 +46,7 @@ fun InterphoneRoute(
         onHostChanged = viewModel::onHostChanged,
         onPortChanged = viewModel::onPortChanged,
         onTokenChanged = viewModel::onTokenChanged,
+        onTargetButlerChanged = viewModel::onTargetButlerChanged,
         onMessageChanged = viewModel::onMessageChanged,
         onSend = viewModel::send,
     )
@@ -58,6 +59,7 @@ fun InterphoneScreen(
     onHostChanged: (String) -> Unit,
     onPortChanged: (String) -> Unit,
     onTokenChanged: (String) -> Unit,
+    onTargetButlerChanged: (String) -> Unit,
     onMessageChanged: (String) -> Unit,
     onSend: () -> Unit,
 ) {
@@ -128,6 +130,19 @@ fun InterphoneScreen(
             },
         )
 
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedTextField(
+            value = state.targetButlerName,
+            onValueChange = onTargetButlerChanged,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = state.phase != RequestPhase.Sending,
+            singleLine = true,
+            label = {
+                Text("Butler target (optional)")
+            },
+        )
+
         Spacer(modifier = Modifier.height(20.dp))
 
         OutlinedTextField(
@@ -170,6 +185,14 @@ fun InterphoneScreen(
             Spacer(modifier = Modifier.height(20.dp))
             Text(
                 text = "Request ID: $requestId",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+
+        state.sourceButlerName?.let { sourceButlerName ->
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Source Butler: $sourceButlerName",
                 style = MaterialTheme.typography.bodySmall,
             )
         }

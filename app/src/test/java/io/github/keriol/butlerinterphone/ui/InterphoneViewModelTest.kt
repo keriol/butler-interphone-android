@@ -96,6 +96,61 @@ class InterphoneViewModelTest {
         }
     }
 
+
+    @Test
+    fun explicitButlerTargetIsForwarded() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+
+        try {
+            var capturedRequest: InterphoneRequest? = null
+
+            val viewModel = InterphoneViewModel(
+                clientFactory = { _, _ ->
+                    object : InterphoneClient {
+                        override suspend fun send(
+                            request: InterphoneRequest,
+                        ): InterphoneResponse {
+                            capturedRequest = request
+                            return InterphoneResponse(
+                                requestId = request.requestId,
+                                response = "Ready.",
+                                sourceButlerName = "Concrete-Butler",
+                            )
+                        }
+                    }
+                },
+                settingsStore = FakeSettingsStore(),
+                initialEndpoint = BifrostEndpointParts(
+                    host = "example.test",
+                    port = "5055",
+                ),
+                initialToken = "secret",
+                requestIdFactory = { "req-target" },
+            )
+
+            viewModel.onTargetButlerChanged("  Concrete-Butler  ")
+            viewModel.onMessageChanged("hello")
+            viewModel.send()
+            advanceUntilIdle()
+
+            assertEquals(
+                "Concrete-Butler",
+                capturedRequest?.targetButlerName,
+            )
+            assertEquals(
+                RequestPhase.Success,
+                viewModel.uiState.value.phase,
+            )
+            assertEquals(
+                "Concrete-Butler",
+                viewModel.uiState.value.sourceButlerName,
+            )
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
     @Test
     fun persistedSettingsOverrideBuildDefaults() {
         val store = FakeSettingsStore(
