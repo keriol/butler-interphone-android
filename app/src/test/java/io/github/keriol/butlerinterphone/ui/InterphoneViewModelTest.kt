@@ -411,7 +411,7 @@ class InterphoneViewModelTest {
     }
 
     @Test
-    fun directoryLoadsAvailableButlersWithoutSelectingFirstOne() = runTest {
+    fun directorySelectsAndPersistsSoleAvailableButler() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
 
@@ -452,12 +452,65 @@ class InterphoneViewModelTest {
                     .map { it.canonicalName },
             )
             assertEquals(
-                "",
+                "Butler-A",
                 viewModel.uiState.value.targetButlerName,
+            )
+            assertEquals(
+                "Butler-A",
+                store.saved?.defaultButlerName,
             )
             assertNull(viewModel.uiState.value.directoryError)
         } finally {
             Dispatchers.resetMain()
         }
     }
+    @Test
+    fun directoryDoesNotGuessWhenMultipleButlersAreAvailable() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+
+        try {
+            val store = FakeSettingsStore()
+            val viewModel = InterphoneViewModel(
+                clientFactory = { _, _ ->
+                    object : InterphoneClient {
+                        override suspend fun send(
+                            request: InterphoneRequest,
+                        ): InterphoneResponse = error("unused")
+
+                        override suspend fun listButlers() = listOf(
+                            ButlerDirectoryEntry(
+                                canonicalName = "Alfred",
+                                available = true,
+                            ),
+                            ButlerDirectoryEntry(
+                                canonicalName = "Wilfred",
+                                available = true,
+                            ),
+                        )
+                    }
+                },
+                settingsStore = store,
+                initialEndpoint = BifrostEndpointParts(
+                    host = "example.test",
+                    port = "5055",
+                ),
+                initialToken = "secret",
+            )
+
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf("Alfred", "Wilfred"),
+                viewModel.uiState.value.availableButlers
+                    .map { it.canonicalName },
+            )
+            assertEquals("", viewModel.uiState.value.targetButlerName)
+            assertNull(store.saved)
+            assertNull(viewModel.uiState.value.directoryError)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
 }

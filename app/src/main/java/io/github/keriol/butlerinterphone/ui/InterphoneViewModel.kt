@@ -245,12 +245,22 @@ class InterphoneViewModel(
                     .listButlers()
                     .filter { entry -> entry.available }
 
-                _uiState.update {
-                    it.copy(
+                val previousTarget = _uiState.value.targetButlerName.trim()
+                _uiState.update { current ->
+                    current.copy(
+                        targetButlerName = resolveButlerTarget(
+                            currentTarget = current.targetButlerName,
+                            discovered = discovered,
+                        ),
                         availableButlers = discovered,
                         directoryLoading = false,
                         directoryError = null,
                     )
+                }
+
+                val resolvedState = _uiState.value
+                if (resolvedState.targetButlerName.trim() != previousTarget) {
+                    persistSettings(resolvedState)
                 }
             } catch (exc: Exception) {
                 _uiState.update {
@@ -387,6 +397,39 @@ class InterphoneViewModel(
             )
         )
     }
+}
+
+internal fun resolveButlerTarget(
+    currentTarget: String,
+    discovered: List<ButlerDirectoryEntry>,
+): String {
+    val normalizedTarget = currentTarget.trim()
+
+    if (normalizedTarget.isNotEmpty()) {
+        discovered.firstOrNull { entry ->
+            entry.canonicalName.equals(
+                normalizedTarget,
+                ignoreCase = true,
+            ) || entry.aliases.any { alias ->
+                alias.equals(
+                    normalizedTarget,
+                    ignoreCase = true,
+                )
+            }
+        }?.let { match ->
+            return match.canonicalName
+        }
+
+        discovered.singleOrNull()?.let { onlyButler ->
+            return onlyButler.canonicalName
+        }
+
+        return normalizedTarget
+    }
+
+    return discovered.singleOrNull()
+        ?.canonicalName
+        .orEmpty()
 }
 
 private fun hasUsableConnection(
