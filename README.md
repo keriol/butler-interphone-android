@@ -24,38 +24,28 @@ The project is currently in private incubation and is being developed with a
 future public release in mind. Public/private boundaries are enforced from the
 first commit.
 
-## Current milestone
+## Current product surface
 
-INT-004 builds on the real Bifröst HTTP client with persistent local
-connection settings while preserving the same Compose/ViewModel architecture:
+The 0.0.1 release line presents Interphone as a Butler client rather than a
+transport demo.
 
-\`\`\`text
-Compose UI
-   |
-InterphoneViewModel
-   |
-InterphoneClient
-   |
-BifrostHttpClient
-   |
-Bifröst HTTP
-\`\`\`
+Primary areas are:
 
-The current screen provides:
+- **Text to your Butler** — text request/response through Bifröst, with compact
+  request diagnostics;
+- **Talk to your Butler** — the reserved voice surface, clearly marked as a
+  post-0.0.1 capability while voice is not yet implemented;
+- **Butler on Bifröst** — searchable hierarchical runtime/node-manifest view;
+- **About** — app identity, release/build information, project repositories,
+  license and project support links.
 
-- separate protocol, host and port fields;
-- `http` as the default protocol;
-- a masked bearer-token field;
-- a message field;
-- a Send button;
-- asynchronous request state;
-- real Bifröst text request/response;
-- a visible request/correlation ID;
-- visible typed transport/protocol errors.
+Connection configuration remains available as a secondary setup surface rather
+than a primary product area.
 
-A request with no \`target_butler_name\` is intentionally Core-facing. A future
-interaction that explicitly addresses a Butler may set the target without
-changing the UI architecture.
+The UI uses centralized branding metadata and Compose theme tokens so future
+frontend/profile variation can be added without hard-coding identity throughout
+individual screens. The 0.0.1 release intentionally does **not** implement
+profile switching or a generalized multi-theme engine.
 
 ## Runtime configuration
 
