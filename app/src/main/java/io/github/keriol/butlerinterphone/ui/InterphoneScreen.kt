@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -140,9 +139,7 @@ fun InterphoneScreen(
                 .padding(horizontal = 20.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Column(
-                modifier = Modifier.weight(1f),
-            ) {
+            Column {
                 Text(
                     text = DefaultInterphoneBranding.appName,
                     style = MaterialTheme.typography.titleLarge,
