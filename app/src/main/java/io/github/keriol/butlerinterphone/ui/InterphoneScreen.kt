@@ -2,6 +2,7 @@ package io.github.keriol.butlerinterphone.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -32,22 +34,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import io.github.keriol.butlerinterphone.R
+import io.github.keriol.butlerinterphone.branding.DefaultInterphoneBranding
 import io.github.keriol.butlerinterphone.client.BifrostEndpointParts
 import io.github.keriol.butlerinterphone.client.InterphoneClient
 import io.github.keriol.butlerinterphone.settings.ConnectionSettingsStore
 
 private enum class InterphoneArea(
     val title: String,
+    val primary: Boolean = true,
 ) {
-    Talk("Talk"),
+    Text("Text to your Butler"),
+    Voice("Talk to your Butler"),
     Butler("Butler on Bifröst"),
-    Config("Config"),
-    Version("Version"),
+    About("About"),
+    Config("Connection", primary = false),
 }
 
 @Composable
@@ -115,7 +123,7 @@ fun InterphoneScreen(
     onSend: () -> Unit,
 ) {
     var areaName by rememberSaveable {
-        mutableStateOf(InterphoneArea.Talk.name)
+        mutableStateOf(InterphoneArea.Text.name)
     }
     val area = InterphoneArea.valueOf(areaName)
 
@@ -125,14 +133,31 @@ fun InterphoneScreen(
             .statusBarsPadding()
             .padding(top = 8.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 20.dp),
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text(
-                text = "Butler Interphone",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
-            )
+            Column(
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(
+                    text = DefaultInterphoneBranding.appName,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = DefaultInterphoneBranding.tagline,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            TextButton(
+                onClick = { areaName = InterphoneArea.Config.name },
+            ) {
+                Text("Connection")
+            }
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -144,7 +169,7 @@ fun InterphoneScreen(
                 .padding(horizontal = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            InterphoneArea.entries.forEach { candidate ->
+            InterphoneArea.entries.filter { it.primary }.forEach { candidate ->
                 if (candidate == area) {
                     Button(onClick = {}) {
                         Text(candidate.title)
@@ -163,14 +188,21 @@ fun InterphoneScreen(
         HorizontalDivider()
 
         when (area) {
-            InterphoneArea.Talk -> TalkArea(
+            InterphoneArea.Text -> TalkArea(
                 state = state,
                 onMessageChanged = onMessageChanged,
                 onSend = onSend,
             )
+            InterphoneArea.Voice -> VoiceArea()
             InterphoneArea.Butler -> ButlerArea(
                 state = state,
                 onRefresh = onRefreshManifest,
+            )
+            InterphoneArea.About -> AboutArea(
+                appVersion = appVersion,
+                buildDate = buildDate,
+                buildType = buildType,
+                onOpenConnection = { areaName = InterphoneArea.Config.name },
             )
             InterphoneArea.Config -> ConfigArea(
                 state = state,
@@ -181,11 +213,6 @@ fun InterphoneScreen(
                 onTargetButlerChanged = onTargetButlerChanged,
                 onRefreshButlers = onRefreshButlers,
                 onSave = onSaveConfig,
-            )
-            InterphoneArea.Version -> VersionArea(
-                appVersion = appVersion,
-                buildDate = buildDate,
-                buildType = buildType,
             )
         }
     }
@@ -263,7 +290,7 @@ private fun TalkArea(
         if (!connectionConfigured) {
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = "Open Config to complete the Bifröst connection.",
+                text = "Open Connection to complete the Bifröst setup.",
                 style = MaterialTheme.typography.bodySmall,
             )
         }
@@ -542,23 +569,134 @@ private fun ButlerArea(
 }
 
 @Composable
-private fun VersionArea(
-    appVersion: String,
-    buildDate: String,
-    buildType: String,
-) {
+private fun VoiceArea() {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(20.dp),
     ) {
         Text(
-            text = "Butler Interphone",
+            text = "Talk to your Butler",
             style = MaterialTheme.typography.titleLarge,
         )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Voice conversation is the next Interphone step.",
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = "Coming after the 0.0.1 release.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun AboutArea(
+    appVersion: String,
+    buildDate: String,
+    buildType: String,
+    onOpenConnection: () -> Unit,
+) {
+    val branding = DefaultInterphoneBranding
+    val uriHandler = LocalUriHandler.current
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(20.dp),
+    ) {
+        Image(
+            painter = painterResource(R.mipmap.ic_launcher),
+            contentDescription = branding.appName + " logo",
+            modifier = Modifier.size(88.dp),
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            text = branding.appName,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Text(
+            text = branding.tagline,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            text = branding.description,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+
         Spacer(modifier = Modifier.height(16.dp))
-        Text("Version $appVersion")
-        Text("Build date $buildDate")
-        Text("Build type $buildType")
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(
+                modifier = Modifier.padding(14.dp),
+            ) {
+                Text(
+                    text = "Release",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text("Version $appVersion")
+                Text("Build date $buildDate")
+                Text("Build type $buildType")
+                Text(branding.license)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Project",
+            style = MaterialTheme.typography.titleMedium,
+        )
+        TextButton(
+            onClick = { uriHandler.openUri(branding.projectUrl) },
+        ) {
+            Text(branding.projectName)
+        }
+
+        Text(
+            text = "Repositories",
+            style = MaterialTheme.typography.titleMedium,
+        )
+        branding.repositories.forEach { repository ->
+            TextButton(
+                onClick = { uriHandler.openUri(repository.url) },
+            ) {
+                Text(repository.label)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Support the project",
+            style = MaterialTheme.typography.titleMedium,
+        )
+        TextButton(
+            onClick = { uriHandler.openUri(branding.supportUrl) },
+        ) {
+            Text(branding.supportLabel)
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedButton(
+            onClick = onOpenConnection,
+        ) {
+            Text("Connection settings")
+        }
     }
 }
