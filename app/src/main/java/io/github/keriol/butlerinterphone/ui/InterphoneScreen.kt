@@ -19,7 +19,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -285,6 +286,7 @@ fun InterphoneScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ButlerOpeningExperience(
     butlerName: String,
@@ -322,7 +324,7 @@ private fun ButlerOpeningExperience(
 
             when (openingState) {
                 ButlerOpeningState.Checking -> {
-                    CircularProgressIndicator()
+                    LoadingIndicator()
                     Spacer(modifier = Modifier.height(18.dp))
                     Text(
                         text = stringResource(

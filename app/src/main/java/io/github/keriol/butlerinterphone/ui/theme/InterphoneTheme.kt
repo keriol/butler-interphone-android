@@ -1,7 +1,9 @@
 package io.github.keriol.butlerinterphone.ui.theme
 
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.MaterialExpressiveTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -48,12 +50,14 @@ private val InterphoneTypography = Typography(
     ),
 )
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun InterphoneTheme(
     content: @Composable () -> Unit,
 ) {
-    MaterialTheme(
+    MaterialExpressiveTheme(
         colorScheme = InterphoneColors,
+        motionScheme = MotionScheme.expressive(),
         typography = InterphoneTypography,
         shapes = InterphoneShapes,
         content = content,
