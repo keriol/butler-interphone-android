@@ -63,7 +63,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = interphoneVersionCode
-        versionName = "0.0.1.dev0"
+        versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
