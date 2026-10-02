@@ -49,6 +49,7 @@ class InterphoneScreenStateTest {
 
         val ready = checking.copy(
             directoryLoading = false,
+            nodeManifest = compatibleManifest(),
             availableButlers = listOf(
                 io.github.keriol.butlerinterphone.client.ButlerDirectoryEntry(
                     canonicalName = "Alfred",
@@ -70,6 +71,7 @@ class InterphoneScreenStateTest {
             port = "5055",
             token = "token",
             targetButlerName = "Alfred",
+            nodeManifest = compatibleManifest(),
             availableButlers = listOf(
                 io.github.keriol.butlerinterphone.client.ButlerDirectoryEntry(
                     canonicalName = "Wilfred",
@@ -110,5 +112,31 @@ class InterphoneScreenStateTest {
         assertTrue(talkTargetLabel("  Alfred  ") == "Alfred")
         assertTrue(talkRouteLabel("Alfred") == "Via Bifröst and Midgard")
     }
+
+private fun compatibleManifest() =
+    io.github.keriol.butlerinterphone.client.NodeManifest(
+        protocolVersion = 1,
+        bifrostVersion = "0.1.0",
+        core = io.github.keriol.butlerinterphone.client.ManifestCore(
+            version = "0.3.0",
+            plugins = listOf(
+                io.github.keriol.butlerinterphone.client.ManifestPlugin(
+                    name = "Midgard",
+                    version = "0.1.0",
+                ),
+                io.github.keriol.butlerinterphone.client.ManifestPlugin(
+                    name = "Home Assistant Plugin",
+                    version = "0.3.0",
+                ),
+            ),
+        ),
+        butlers = listOf(
+            io.github.keriol.butlerinterphone.client.ManifestButler(
+                canonicalName = "Alfred",
+                version = "0.5.0",
+                available = true,
+            )
+        ),
+    )
 
 }
