@@ -113,6 +113,14 @@ internal fun isConnectionConfigured(
         && state.token.isNotBlank()
 )
 
+internal fun selectedCompatibilityError(
+    state: InterphoneUiState,
+): String? {
+    val target = state.targetButlerName.trim()
+    if (target.isEmpty()) return null
+    return state.incompatibleButlers[target.lowercase()]
+}
+
 internal enum class ButlerOpeningState {
     None,
     Checking,
@@ -127,8 +135,18 @@ internal fun butlerOpeningState(
     val butlerName = configuredButlerName.trim()
     if (butlerName.isEmpty()) return ButlerOpeningState.None
     if (!isConnectionConfigured(state)) return ButlerOpeningState.Unavailable
-    if (state.directoryLoading) return ButlerOpeningState.Checking
-    if (state.directoryError != null) return ButlerOpeningState.Unavailable
+    if (state.directoryLoading || state.manifestLoading) {
+        return ButlerOpeningState.Checking
+    }
+    if (
+        state.directoryError != null
+        || state.manifestError != null
+        || state.compatibilityError != null
+        || selectedCompatibilityError(state) != null
+    ) {
+        return ButlerOpeningState.Unavailable
+    }
+    if (state.nodeManifest == null) return ButlerOpeningState.Checking
 
     val available = state.availableButlers.any { butler ->
         butler.canonicalName.equals(butlerName, ignoreCase = true)
@@ -454,6 +472,72 @@ private fun TalkArea(
 
         Spacer(modifier = Modifier.height(14.dp))
 
+        state.compatibilityError?.let { value ->
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Ignition compatibility blocked",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = value,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        selectedCompatibilityError(state)?.let { value ->
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Selected Butler is incompatible",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = value,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        state.compatibilityWarnings.forEach { value ->
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Compatibility warning",
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = value,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        if (
+            connectionConfigured
+            && state.nodeManifest == null
+            && !state.manifestLoading
+        ) {
+            Text(
+                text = "Compatibility not verified. Refresh the runtime manifest.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
         OutlinedTextField(
             value = state.message,
             onValueChange = onMessageChanged,
@@ -481,6 +565,9 @@ private fun TalkArea(
                 state.phase != RequestPhase.Sending
                     && connectionConfigured
                     && state.message.isNotBlank()
+                    && state.nodeManifest != null
+                    && state.compatibilityError == null
+                    && selectedCompatibilityError(state) == null
             ),
         ) {
             Text(

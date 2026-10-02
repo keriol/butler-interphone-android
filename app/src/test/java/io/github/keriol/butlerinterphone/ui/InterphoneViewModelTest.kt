@@ -18,6 +18,7 @@ import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.test.resetMain
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -46,6 +47,8 @@ class InterphoneViewModelTest {
                         capturedRequest = request
                         return pending.await()
                     }
+
+                    override suspend fun getNodeManifest() = compatibleManifest()
                 }
             }
 
@@ -61,6 +64,7 @@ class InterphoneViewModelTest {
                 requestIdFactory = { "req-1" },
             )
 
+            advanceUntilIdle()
             viewModel.onMessageChanged("hello")
             viewModel.send()
             runCurrent()
@@ -120,6 +124,8 @@ class InterphoneViewModelTest {
                                 sourceButlerName = "Concrete-Butler",
                             )
                         }
+
+                        override suspend fun getNodeManifest() = compatibleManifest()
                     }
                 },
                 settingsStore = store,
@@ -131,6 +137,7 @@ class InterphoneViewModelTest {
                 requestIdFactory = { "req-target" },
             )
 
+            advanceUntilIdle()
             viewModel.onTargetButlerChanged("  Concrete-Butler  ")
             viewModel.onMessageChanged("hello")
             viewModel.send()
@@ -313,6 +320,8 @@ class InterphoneViewModelTest {
                             requestId = "wrong-id",
                             response = "wrong response",
                         )
+
+                        override suspend fun getNodeManifest() = compatibleManifest()
                     }
                 },
                 settingsStore = FakeSettingsStore(),
@@ -324,6 +333,7 @@ class InterphoneViewModelTest {
                 requestIdFactory = { "req-2" },
             )
 
+            advanceUntilIdle()
             viewModel.onMessageChanged("hello")
             viewModel.send()
             advanceUntilIdle()
@@ -356,14 +366,25 @@ class InterphoneViewModelTest {
                         override suspend fun getNodeManifest() =
                             io.github.keriol.butlerinterphone.client.NodeManifest(
                                 protocolVersion = 1,
-                                bifrostVersion = "0.0.1.dev0",
+                                bifrostVersion = "0.1.0",
                                 core = io.github.keriol.butlerinterphone.client.ManifestCore(
-                                    version = "0.2.1.dev0",
+                                    version = "0.3.0",
+                                    plugins = listOf(
+                                        io.github.keriol.butlerinterphone.client.ManifestPlugin(
+                                            name = "Midgard",
+                                            version = "0.1.0",
+                                        ),
+                                        io.github.keriol.butlerinterphone.client.ManifestPlugin(
+                                            name = "Home Assistant Plugin",
+                                            version = "0.3.0",
+                                        ),
+                                    ),
                                 ),
                                 butlers = listOf(
                                     io.github.keriol.butlerinterphone.client.ManifestButler(
                                         canonicalName = "Alfred",
                                         aliases = listOf("Alf"),
+                                        version = "0.5.0",
                                         available = true,
                                     )
                                 ),
@@ -381,7 +402,7 @@ class InterphoneViewModelTest {
             advanceUntilIdle()
 
             assertEquals(
-                "0.2.1.dev0",
+                "0.3.0",
                 viewModel.uiState.value.nodeManifest?.core?.version,
             )
             assertEquals(
@@ -397,6 +418,124 @@ class InterphoneViewModelTest {
             Dispatchers.resetMain()
         }
     }
+
+    @Test
+    fun preIgnitionNetworkBlocksSend() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+
+        try {
+            var sendCalled = false
+            val viewModel = InterphoneViewModel(
+                clientFactory = { _, _ ->
+                    object : InterphoneClient {
+                        override suspend fun send(
+                            request: InterphoneRequest,
+                        ): InterphoneResponse {
+                            sendCalled = true
+                            error("send must be blocked")
+                        }
+
+                        override suspend fun getNodeManifest() =
+                            compatibleManifest(bifrost = "0.0.9")
+                    }
+                },
+                settingsStore = FakeSettingsStore(),
+                initialEndpoint = BifrostEndpointParts(
+                    host = "example.test",
+                    port = "5055",
+                ),
+                initialToken = "secret",
+            )
+
+            advanceUntilIdle()
+            viewModel.onMessageChanged("hello")
+            viewModel.send()
+
+            assertEquals(false, sendCalled)
+            assertEquals(RequestPhase.Error, viewModel.uiState.value.phase)
+            assertTrue(
+                viewModel.uiState.value.error!!
+                    .contains("Bifröst 0.0.9 is incompatible")
+            )
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun preIgnitionAlfredBlocksOnlySelectedAlfred() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+
+        try {
+            var sendCalled = false
+            val viewModel = InterphoneViewModel(
+                clientFactory = { _, _ ->
+                    object : InterphoneClient {
+                        override suspend fun send(
+                            request: InterphoneRequest,
+                        ): InterphoneResponse {
+                            sendCalled = true
+                            error("send must be blocked")
+                        }
+
+                        override suspend fun getNodeManifest() =
+                            compatibleManifest(alfred = "0.4.9")
+                    }
+                },
+                settingsStore = FakeSettingsStore(),
+                initialEndpoint = BifrostEndpointParts(
+                    host = "example.test",
+                    port = "5055",
+                ),
+                initialToken = "secret",
+            )
+
+            advanceUntilIdle()
+            viewModel.onTargetButlerChanged("Alfred")
+            viewModel.onMessageChanged("hello")
+            viewModel.send()
+
+            assertEquals(false, sendCalled)
+            assertEquals(RequestPhase.Error, viewModel.uiState.value.phase)
+            assertTrue(
+                viewModel.uiState.value.error!!
+                    .contains("Alfred 0.4.9 is incompatible")
+            )
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    private fun compatibleManifest(
+        bifrost: String = "0.1.0",
+        alfred: String = "0.5.0",
+    ) = io.github.keriol.butlerinterphone.client.NodeManifest(
+        protocolVersion = 1,
+        bifrostVersion = bifrost,
+        core = io.github.keriol.butlerinterphone.client.ManifestCore(
+            version = "0.3.0",
+            plugins = listOf(
+                io.github.keriol.butlerinterphone.client.ManifestPlugin(
+                    name = "Midgard",
+                    version = "0.1.0",
+                ),
+                io.github.keriol.butlerinterphone.client.ManifestPlugin(
+                    name = "Home Assistant Plugin",
+                    version = "0.3.0",
+                ),
+            ),
+        ),
+        butlers = listOf(
+            io.github.keriol.butlerinterphone.client.ManifestButler(
+                canonicalName = "Alfred",
+                aliases = listOf("Alf"),
+                version = alfred,
+                available = true,
+            )
+        ),
+    )
 
     private class FakeSettingsStore(
         private val loaded: BifrostConnectionSettings? = null,
