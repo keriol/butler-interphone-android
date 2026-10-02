@@ -36,10 +36,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.keriol.butlerinterphone.client.BifrostEndpointParts
-import io.github.keriol.butlerinterphone.client.ManifestDependency
-import io.github.keriol.butlerinterphone.client.ManifestEntity
-import io.github.keriol.butlerinterphone.client.ManifestPlugin
-import io.github.keriol.butlerinterphone.client.ManifestReadiness
 import io.github.keriol.butlerinterphone.client.InterphoneClient
 import io.github.keriol.butlerinterphone.settings.ConnectionSettingsStore
 
@@ -491,55 +487,28 @@ private fun ButlerArea(
     onRefresh: () -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(20.dp),
+        modifier = Modifier.fillMaxSize(),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Column {
-                Text(
-                    text = "Butler on Bifröst",
-                    style = MaterialTheme.typography.titleLarge,
-                )
-                Text(
-                    text = "Live runtime-supplied self-description",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-
-            TextButton(
-                onClick = onRefresh,
-                enabled = (
-                    !state.manifestLoading
-                        && isConnectionConfigured(state)
-                ),
-            ) {
-                Text("Refresh")
-            }
-        }
-
         if (state.manifestLoading) {
             Spacer(modifier = Modifier.height(16.dp))
-            CircularProgressIndicator()
+            CircularProgressIndicator(
+                modifier = Modifier.padding(horizontal = 20.dp),
+            )
         }
 
         state.manifestError?.let {
-            Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = it,
+                modifier = Modifier.padding(20.dp),
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
 
         val manifest = state.nodeManifest
         if (manifest == null && !state.manifestLoading) {
-            Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "No node manifest loaded.",
+                modifier = Modifier.padding(20.dp),
                 style = MaterialTheme.typography.bodyMedium,
             )
             return@Column
@@ -547,209 +516,15 @@ private fun ButlerArea(
 
         manifest ?: return@Column
 
-        Spacer(modifier = Modifier.height(18.dp))
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-            ) {
-                Text(
-                    text = "Bifröst",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text("Version ${manifest.bifrostVersion}")
-                Text("Protocol ${manifest.protocolVersion}")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-            ) {
-                Text(
-                    text = "Butler Core",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text("Version ${manifest.core.version}")
-
-                if (manifest.core.plugins.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    manifest.core.plugins.forEach { plugin ->
-                        PluginBlock(plugin)
-                    }
-                }
-            }
-        }
-
-        manifest.butlers.forEach { butler ->
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                ) {
-                    Text(
-                        text = butler.canonicalName,
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        text = if (butler.available) "Available" else "Unavailable",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-
-                    if (butler.aliases.isNotEmpty()) {
-                        Text(
-                            text = "Aliases: ${butler.aliases.joinToString()}",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-
-                    butler.version?.let {
-                        Text("Butler version $it")
-                    }
-                    butler.asgardVersion?.let {
-                        Text("Asgard version $it")
-                    }
-                    if (butler.description.isNotBlank()) {
-                        Text(butler.description)
-                    }
-
-                    if (butler.entities.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "Entities",
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        butler.entities.forEach { entity ->
-                            EntityBlock(entity)
-                        }
-                    }
-
-                    if (butler.plugins.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "Butler-local plugins",
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        butler.plugins.forEach { plugin ->
-                            PluginBlock(plugin)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PluginBlock(
-    plugin: ManifestPlugin,
-) {
-    Column(
-        modifier = Modifier.padding(vertical = 6.dp),
-    ) {
-        Text(
-            text = "${plugin.name} • ${plugin.version}",
-            fontWeight = FontWeight.Medium,
+        ButlerRuntimeExplorer(
+            manifest = manifest,
+            onRefresh = onRefresh,
+            refreshEnabled = (
+                !state.manifestLoading
+                    && isConnectionConfigured(state)
+            ),
         )
-        if (plugin.description.isNotBlank()) {
-            Text(
-                text = plugin.description,
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-        Text(
-            text = if (plugin.available) "Available" else "Unavailable",
-            style = MaterialTheme.typography.bodySmall,
-        )
-        ReadinessBlock(plugin.readiness)
-        DependenciesBlock(plugin.dependencies)
     }
-}
-
-@Composable
-private fun EntityBlock(
-    entity: ManifestEntity,
-) {
-    Column(
-        modifier = Modifier.padding(vertical = 6.dp),
-    ) {
-        Text(
-            text = entity.name,
-            fontWeight = FontWeight.Medium,
-        )
-        if (entity.description.isNotBlank()) {
-            Text(
-                text = entity.description,
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-        Text(
-            text = if (entity.available) "Available" else "Unavailable",
-            style = MaterialTheme.typography.bodySmall,
-        )
-        ReadinessBlock(entity.readiness)
-        DependenciesBlock(entity.dependencies)
-
-        entity.methods.forEach { method ->
-            Text(
-                text = "• ${method.name}",
-                style = MaterialTheme.typography.bodySmall,
-            )
-            if (method.description.isNotBlank()) {
-                Text(
-                    text = method.description,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-            ReadinessBlock(method.readiness)
-            DependenciesBlock(method.dependencies)
-        }
-    }
-}
-
-@Composable
-private fun ReadinessBlock(
-    readiness: ManifestReadiness?,
-) {
-    readiness ?: return
-    Text(
-        text = buildString {
-            append("Readiness: ")
-            append(readiness.state)
-            readiness.reasonCode?.let {
-                append(" • ")
-                append(it)
-            }
-        },
-        style = MaterialTheme.typography.bodySmall,
-    )
-}
-
-@Composable
-private fun DependenciesBlock(
-    dependencies: List<ManifestDependency>,
-) {
-    if (dependencies.isEmpty()) {
-        return
-    }
-
-    Text(
-        text = "Dependencies: " + dependencies.joinToString { dependency ->
-            dependency.version?.let {
-                "${dependency.name} $it"
-            } ?: dependency.name
-        },
-        style = MaterialTheme.typography.bodySmall,
-    )
 }
 
 @Composable
