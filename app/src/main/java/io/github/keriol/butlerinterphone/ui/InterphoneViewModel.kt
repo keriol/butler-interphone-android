@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import io.github.keriol.butlerinterphone.client.BifrostEndpointParts
+import io.github.keriol.butlerinterphone.client.ButlerDirectoryEntry
 import io.github.keriol.butlerinterphone.client.InterphoneClient
 import io.github.keriol.butlerinterphone.client.InterphoneRequest
 import io.github.keriol.butlerinterphone.settings.BifrostConnectionSettings
