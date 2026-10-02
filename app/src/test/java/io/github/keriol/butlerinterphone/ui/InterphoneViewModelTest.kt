@@ -416,6 +416,7 @@ class InterphoneViewModelTest {
         Dispatchers.setMain(dispatcher)
 
         try {
+            val store = FakeSettingsStore()
             val viewModel = InterphoneViewModel(
                 clientFactory = { _, _ ->
                     object : InterphoneClient {
@@ -436,7 +437,7 @@ class InterphoneViewModelTest {
                         )
                     }
                 },
-                settingsStore = FakeSettingsStore(),
+                settingsStore = store,
                 initialEndpoint = BifrostEndpointParts(
                     host = "example.test",
                     port = "5055",
