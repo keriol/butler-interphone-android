@@ -32,4 +32,16 @@ class InterphoneScreenStateTest {
             )
         )
     }
+    @Test
+    fun coreRouteUsesCompactCoreLabels() {
+        assertTrue(talkTargetLabel("") == "Butler Core")
+        assertTrue(talkRouteLabel("") == "Core-facing path")
+    }
+
+    @Test
+    fun explicitButlerRouteUsesCompactMidgardLabel() {
+        assertTrue(talkTargetLabel("  Alfred  ") == "Alfred")
+        assertTrue(talkRouteLabel("Alfred") == "Via Bifröst and Midgard")
+    }
+
 }

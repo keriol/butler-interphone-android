@@ -1,5 +1,6 @@
 package io.github.keriol.butlerinterphone.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -120,27 +121,19 @@ fun InterphoneScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = 16.dp),
+            .padding(top = 8.dp),
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 20.dp),
         ) {
             Text(
                 text = "Butler Interphone",
-                style = MaterialTheme.typography.headlineMedium,
-            )
-            Text(
-                text = when (area) {
-                    InterphoneArea.Talk -> "Talk"
-                    InterphoneArea.Butler -> "Runtime self-description"
-                    InterphoneArea.Config -> "Client configuration"
-                    InterphoneArea.Version -> "App build identity"
-                },
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         Row(
             modifier = Modifier
@@ -196,6 +189,18 @@ fun InterphoneScreen(
     }
 }
 
+internal fun talkTargetLabel(
+    targetButlerName: String,
+): String = targetButlerName.trim().ifEmpty { "Butler Core" }
+
+internal fun talkRouteLabel(
+    targetButlerName: String,
+): String = if (targetButlerName.isBlank()) {
+    "Core-facing path"
+} else {
+    "Via Bifröst and Midgard"
+}
+
 @Composable
 private fun TalkArea(
     state: InterphoneUiState,
@@ -208,35 +213,22 @@ private fun TalkArea(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(20.dp),
+            .padding(horizontal = 20.dp, vertical = 14.dp),
     ) {
         Text(
-            text = "Talking to",
-            style = MaterialTheme.typography.labelLarge,
-        )
-        Text(
-            text = state.targetButlerName.trim().ifEmpty { "Butler Core" },
-            style = MaterialTheme.typography.headlineSmall,
+            text = "${talkTargetLabel(state.targetButlerName)} • ${talkRouteLabel(state.targetButlerName)}",
+            style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
-        )
-        Text(
-            text = if (state.targetButlerName.isBlank()) {
-                "Core-facing path"
-            } else {
-                "Explicit Butler route through Bifröst and Midgard"
-            },
-            style = MaterialTheme.typography.bodySmall,
         )
 
         state.sourceButlerName?.let { source ->
-            Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = "Last response from $source",
                 style = MaterialTheme.typography.bodySmall,
             )
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         OutlinedTextField(
             value = state.message,
@@ -244,10 +236,10 @@ private fun TalkArea(
             modifier = Modifier.fillMaxWidth(),
             enabled = state.phase != RequestPhase.Sending,
             label = { Text("Message") },
-            minLines = 3,
+            minLines = 2,
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         Button(
             onClick = onSend,
@@ -267,7 +259,7 @@ private fun TalkArea(
         }
 
         if (!connectionConfigured) {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = "Open Config to complete the Bifröst connection.",
                 style = MaterialTheme.typography.bodySmall,
@@ -275,16 +267,8 @@ private fun TalkArea(
         }
 
         if (state.phase == RequestPhase.Sending) {
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             CircularProgressIndicator()
-        }
-
-        state.requestId?.let { requestId ->
-            Spacer(modifier = Modifier.height(20.dp))
-            DiagnosticCard(
-                requestId = requestId,
-                sourceButlerName = state.sourceButlerName,
-            )
         }
 
         val output = state.response ?: state.error
@@ -296,8 +280,17 @@ private fun TalkArea(
                 modifier = Modifier.fillMaxWidth(),
                 readOnly = true,
                 label = { Text("Output") },
-                minLines = 3,
+                minLines = 1,
+                maxLines = 8,
                 supportingText = { Text("Long-press to select and copy") },
+            )
+        }
+
+        state.requestId?.let { requestId ->
+            Spacer(modifier = Modifier.height(10.dp))
+            DiagnosticCard(
+                requestId = requestId,
+                sourceButlerName = state.sourceButlerName,
             )
         }
     }
@@ -308,25 +301,44 @@ private fun DiagnosticCard(
     requestId: String,
     sourceButlerName: String?,
 ) {
+    var expanded by rememberSaveable(requestId) {
+        mutableStateOf(false)
+    }
+
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { expanded = !expanded },
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
         ) {
-            Text(
-                text = "Request diagnostics",
-                style = MaterialTheme.typography.titleSmall,
-            )
-            Text(
-                text = "Request ID: $requestId",
-                style = MaterialTheme.typography.bodySmall,
-            )
-            sourceButlerName?.let {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
                 Text(
-                    text = "Source Butler: $it",
+                    text = "Request diagnostics",
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    text = if (expanded) "▾" else "▸",
+                    style = MaterialTheme.typography.titleSmall,
+                )
+            }
+
+            if (expanded) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Request ID: $requestId",
                     style = MaterialTheme.typography.bodySmall,
                 )
+                sourceButlerName?.let {
+                    Text(
+                        text = "Source Butler: $it",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
             }
         }
     }
