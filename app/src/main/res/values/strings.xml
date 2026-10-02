@@ -1,4 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Butler Interphone</string>
+    <string name="butler_greeting_title">Hello, I’m %1$s.</string>
+    <string name="butler_greeting_prompt">How can I help you today?</string>
+    <string name="butler_greeting_continue">Talk to %1$s</string>
+    <string name="butler_checking">Connecting to %1$s…</string>
+    <string name="butler_unavailable_title">%1$s is unavailable</string>
+    <string name="butler_unavailable_body">Interphone won’t silently switch to another Butler.</string>
+    <string name="butler_open_connection">Open connection</string>
+    <string name="talk_message_hint">Write to %1$s…</string>
+    <string name="talk_output_label">%1$s replied</string>
 </resources>
