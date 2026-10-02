@@ -2,77 +2,83 @@
 
 **The Android client for the Butler ecosystem.**
 
-Butler Interphone is a replaceable Android frontend that talks only to the
-Bifröst client boundary.
+Butler Interphone is the public Android frontend for talking to a Butler through
+the reusable communication stack.
 
-\`\`\`text
+```text
+Android
+  |
 Butler Interphone
-       |
-    Bifröst
-       |
-    Midgard
-       |
- Butler Core
-   /      \
-plugin   Asgard -> concrete Butler
-\`\`\`
+  |
+Bifröst
+  |
+Midgard
+  |
+Butler Core
+  |
+shared capabilities / concrete Butler
+```
 
-The Android app does not know Alfred, Home Assistant, HAP, Midgard or Asgard
-implementation details.
+Interphone does not embed concrete Butler behavior. It discovers compatible
+runtime metadata, transports user requests through Bifröst and renders the
+result returned by the network.
 
-The project is currently in private incubation and is being developed with a
-future public release in mind. Public/private boundaries are enforced from the
-first commit.
+## Current release
 
-## Current product surface
+**Public Alpha: 0.1.0 — Ignition**
 
-The 0.0.1 release line presents Interphone as a Butler client rather than a
-transport demo.
+Interphone 0.1.0 is the Android endpoint of **IGNITION-001**, the first
+coordinated Butler-to-Android network baseline.
 
-Primary areas are:
+The release proves:
 
-- **Text to your Butler** — text request/response through Bifröst, with compact
-  request diagnostics;
-- **Talk to your Butler** — the reserved voice surface, clearly marked as a
-  post-0.0.1 capability while voice is not yet implemented;
-- **Butler on Bifröst** — searchable hierarchical runtime/node-manifest view;
-- **About** — app identity, release/build information, project repositories,
-  license and project support links.
+- signed Android STABLE builds;
+- runtime Butler discovery and selection;
+- Bifröst node-manifest compatibility checks;
+- explicit Butler targeting;
+- request correlation and source-Butler diagnostics;
+- real Core/HAP READ -> ACTION -> READ/VERIFY;
+- real concrete-Butler request/reply through Bifröst, Midgard and a
+  Butler-owned Asgard boundary.
 
-Connection configuration remains available as a secondary setup surface rather
-than a primary product area.
+Voice, proactive notifications, structured confirmation controls and richer
+interaction UX remain post-0.1.0 work.
 
-The UI uses centralized branding metadata and Compose theme tokens so future
-frontend/profile variation can be added without hard-coding identity throughout
-individual screens. The 0.0.1 release intentionally does **not** implement
-profile switching or a generalized multi-theme engine.
+## Product surface
+
+The current app provides:
+
+- **Talk** — text request/response with the selected Butler;
+- **Butler** — runtime identity and hierarchical manifest explorer;
+- **Config** — Bifröst endpoint and credential setup;
+- **Version** — build and release information.
+
+Connection details stay secondary to the Butler interaction itself.
 
 ## Runtime configuration
 
-Endpoint and token are never committed.
+Production endpoints and tokens are never committed.
 
-Provide them as Gradle properties, environment variables, or entries in the
-ignored Android \`local.properties\` file:
+Provide them at build time or configure them locally using supported runtime
+settings. Development builds may use Gradle properties, environment variables,
+or the ignored Android `local.properties` file.
 
-\`\`\`text
+Example:
+
+```text
 INTERPHONE_BIFROST_URL=https://example.invalid
 INTERPHONE_BIFROST_TOKEN=replace-at-build-time
-\`\`\`
+```
 
-The URL is the Bifröst host base URL. The client appends
-\`/bifrost/v1/text\`.
-
-For local proving, \`~/.gradle/gradle.properties\` is convenient because it
-remains outside the repository.
-
+The client uses the Bifröst HTTP API and never requires private Butler
+implementation details.
 
 ## Release signing
 
-Debug CI remains intentionally secret-free. Installable release APKs use a
-separate workflow and one stable signing identity so future releases can
-upgrade an existing installation in place.
+Debug CI remains intentionally secret-free.
 
-The release workflow expects these GitHub Actions secrets:
+Installable STABLE APKs use a persistent Android signing identity provided only
+through GitHub Actions secrets:
 
 ```text
 INTERPHONE_KEYSTORE_B64
@@ -81,11 +87,8 @@ INTERPHONE_KEY_ALIAS
 INTERPHONE_KEY_PASSWORD
 ```
 
-The keystore must never be committed. Store its base64 representation only as a
-repository secret. The workflow materializes it in the ephemeral runner,
-builds the release APK, verifies the APK signature with `apksigner`, and
-uploads only the signed APK artifact.
-
+The keystore is materialized only on the ephemeral runner and is never stored in
+the repository.
 
 ## Android stack
 
@@ -93,13 +96,10 @@ uploads only the signed APK artifact.
 - Gradle 9.6.0;
 - JDK 17;
 - compile/target SDK 36;
-- Kotlin 2.4.10 Compose compiler plugin with AGP built-in Kotlin;
-- Compose BOM 2026.04.01;
-- Activity Compose 1.11.0;
-- Lifecycle 2.10.0;
-- kotlinx.coroutines 1.11.0;
-- kotlinx.serialization JSON 1.11.0;
-- Android/JDK \`HttpURLConnection\` for HTTP transport.
+- Kotlin + Jetpack Compose;
+- Material 3;
+- kotlinx.coroutines;
+- kotlinx.serialization.
 
 ## Build
 
@@ -108,61 +108,52 @@ Requirements:
 - JDK 17;
 - Android SDK platform 36;
 - Android SDK Build Tools 36.0.0;
-- Gradle 9.6.0, or Android Studio with compatible tooling.
+- Gradle 9.6.0, or a compatible Android Studio installation.
 
-From a clean checkout:
-
-\`\`\`bash
+```bash
 gradle --no-daemon testDebugUnitTest
 gradle --no-daemon assembleDebug
-\`\`\`
+```
 
-CI performs the same unit-test and debug-build path without private runtime
-configuration.
+CI exercises the same public, secret-free test/build path.
 
-## Kotlin map for C# developers
+## Architecture boundary
 
-\`\`\`text
-Kotlin data class        ~ C# record
-val                      ~ read-only reference
-var                      ~ mutable reference
-suspend fun              ~ async-style suspendable operation
-StateFlow<T>             ~ observable state stream
-ViewModel                ~ UI-facing state/logic owner
-Composable               ~ function that renders UI from state
-\`\`\`
+Interphone owns Android presentation and client-side interaction state.
 
-The Composable never performs the network request. It emits user intent to the
-ViewModel; the ViewModel talks to an \`InterphoneClient\`.
+It does **not** own:
 
-## Public-ready boundary
+- Butler routing policy;
+- concrete Butler runtime behavior;
+- Home Assistant semantics;
+- household configuration;
+- Bifröst/Midgard server implementation.
+
+See [Architecture](docs/architecture.md).
+
+## Public boundary
 
 This repository must never contain:
 
 - production endpoints or credentials;
-- household-specific entity identifiers;
-- private topology or deployment details;
+- private household identifiers;
+- deployment-specific topology;
 - personal data;
 - raw biometric material or voiceprints;
-- private runtime configuration.
+- private Butler implementation.
 
 Runtime configuration belongs outside source control.
 
-See [Architecture](docs/architecture.md), [Contributing](CONTRIBUTING.md), and
-[Security](SECURITY.md).
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Active work and release evidence are tracked in GitHub Issues.
+
+## Security
+
+See [SECURITY.md](SECURITY.md).
 
 ## License
 
 Apache License 2.0.
-
-## Installing on Android devices
-
-GitHub Actions publishes two different APK channels:
-
-- **DEBUG** artifacts come from ordinary Android CI. They are for development/testing only and are not a supported upgrade path on a device.
-- **STABLE** artifacts come from the Android Release APK workflow. They are signed with the repository's persistent release keystore and use a monotonically increasing Android `versionCode`.
-
-Use only **STABLE** artifacts for normal installation and upgrades on a phone.
-
-A device that already has a pre-INT-013 debug build may require one uninstall before the first STABLE installation because Android does not allow an installed package to change signing certificate. After that first STABLE installation, later STABLE builds are intended to install as in-place upgrades.
-
