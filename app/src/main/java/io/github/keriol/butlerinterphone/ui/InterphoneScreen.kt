@@ -3,6 +3,7 @@ package io.github.keriol.butlerinterphone.ui
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -33,11 +35,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -105,6 +110,36 @@ internal fun isConnectionConfigured(
         && state.token.isNotBlank()
 )
 
+internal enum class ButlerOpeningState {
+    None,
+    Checking,
+    Ready,
+    Unavailable,
+}
+
+internal fun butlerOpeningState(
+    state: InterphoneUiState,
+    configuredButlerName: String,
+): ButlerOpeningState {
+    val butlerName = configuredButlerName.trim()
+    if (butlerName.isEmpty()) return ButlerOpeningState.None
+    if (!isConnectionConfigured(state)) return ButlerOpeningState.Unavailable
+    if (state.directoryLoading) return ButlerOpeningState.Checking
+    if (state.directoryError != null) return ButlerOpeningState.Unavailable
+
+    val available = state.availableButlers.any { butler ->
+        butler.canonicalName.equals(butlerName, ignoreCase = true)
+            || butler.aliases.any { alias ->
+                alias.equals(butlerName, ignoreCase = true)
+            }
+    }
+    return if (available) {
+        ButlerOpeningState.Ready
+    } else {
+        ButlerOpeningState.Unavailable
+    }
+}
+
 @Composable
 fun InterphoneScreen(
     appVersion: String,
@@ -126,6 +161,29 @@ fun InterphoneScreen(
         mutableStateOf(InterphoneArea.Text.name)
     }
     val area = InterphoneArea.valueOf(areaName)
+    val openingButlerName = rememberSaveable {
+        state.targetButlerName.trim()
+    }
+    var openingDismissed by rememberSaveable {
+        mutableStateOf(openingButlerName.isBlank())
+    }
+    val openingState = butlerOpeningState(
+        state = state,
+        configuredButlerName = openingButlerName,
+    )
+
+    if (!openingDismissed && openingState != ButlerOpeningState.None) {
+        ButlerOpeningExperience(
+            butlerName = openingButlerName,
+            openingState = openingState,
+            onContinue = { openingDismissed = true },
+            onOpenConnection = {
+                openingDismissed = true
+                areaName = InterphoneArea.Config.name
+            },
+        )
+        return
+    }
 
     Column(
         modifier = Modifier
@@ -216,6 +274,118 @@ fun InterphoneScreen(
     }
 }
 
+@Composable
+private fun ButlerOpeningExperience(
+    butlerName: String,
+    openingState: ButlerOpeningState,
+    onContinue: () -> Unit,
+    onOpenConnection: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .padding(horizontal = 32.dp, vertical = 28.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Surface(
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                tonalElevation = 8.dp,
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.ic_launcher_foreground),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .padding(18.dp)
+                        .size(88.dp),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            when (openingState) {
+                ButlerOpeningState.Checking -> {
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.height(18.dp))
+                    Text(
+                        text = stringResource(
+                            R.string.butler_checking,
+                            butlerName,
+                        ),
+                        style = MaterialTheme.typography.titleMedium,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+
+                ButlerOpeningState.Ready -> {
+                    Text(
+                        text = stringResource(
+                            R.string.butler_greeting_title,
+                            butlerName,
+                        ),
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = stringResource(R.string.butler_greeting_prompt),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(modifier = Modifier.height(30.dp))
+                    Button(
+                        onClick = onContinue,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            stringResource(
+                                R.string.butler_greeting_continue,
+                                butlerName,
+                            )
+                        )
+                    }
+                }
+
+                ButlerOpeningState.Unavailable -> {
+                    Text(
+                        text = stringResource(
+                            R.string.butler_unavailable_title,
+                            butlerName,
+                        ),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = stringResource(R.string.butler_unavailable_body),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(modifier = Modifier.height(26.dp))
+                    OutlinedButton(
+                        onClick = onOpenConnection,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(stringResource(R.string.butler_open_connection))
+                    }
+                }
+
+                ButlerOpeningState.None -> Unit
+            }
+        }
+    }
+}
+
 internal fun talkTargetLabel(
     targetButlerName: String,
 ): String = targetButlerName.trim().ifEmpty { "Butler Core" }
@@ -263,13 +433,23 @@ private fun TalkArea(
             modifier = Modifier.fillMaxWidth(),
             enabled = state.phase != RequestPhase.Sending,
             label = { Text("Message") },
+            placeholder = {
+                Text(
+                    stringResource(
+                        R.string.talk_message_hint,
+                        talkTargetLabel(state.targetButlerName),
+                    )
+                )
+            },
             minLines = 2,
+            shape = MaterialTheme.shapes.large,
         )
 
         Spacer(modifier = Modifier.height(10.dp))
 
         Button(
             onClick = onSend,
+            modifier = Modifier.fillMaxWidth(),
             enabled = (
                 state.phase != RequestPhase.Sending
                     && connectionConfigured
@@ -298,19 +478,62 @@ private fun TalkArea(
             CircularProgressIndicator()
         }
 
-        val output = state.response ?: state.error
-        output?.let { value ->
+        state.response?.let { value ->
             Spacer(modifier = Modifier.height(12.dp))
-            OutlinedTextField(
-                value = value,
-                onValueChange = {},
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                readOnly = true,
-                label = { Text("Output") },
-                minLines = 1,
-                maxLines = 8,
-                supportingText = { Text("Long-press to select and copy") },
-            )
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                ) {
+                    Text(
+                        text = stringResource(
+                            R.string.talk_output_label,
+                            state.sourceButlerName
+                                ?: talkTargetLabel(state.targetButlerName),
+                        ),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    SelectionContainer {
+                        Text(
+                            text = value,
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Long-press to select and copy",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
+        state.error?.let { value ->
+            Spacer(modifier = Modifier.height(12.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                ) {
+                    Text(
+                        text = "Request failed",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    SelectionContainer {
+                        Text(
+                            text = value,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
+            }
         }
 
         state.requestId?.let { requestId ->

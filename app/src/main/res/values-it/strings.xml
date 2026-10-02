@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="butler_greeting_title">Ciao, sono %1$s.</string>
+    <string name="butler_greeting_prompt">Come posso aiutarti oggi?</string>
+    <string name="butler_greeting_continue">Parla con %1$s</string>
+    <string name="butler_checking">Sto contattando %1$s…</string>
+    <string name="butler_unavailable_title">%1$s non è disponibile</string>
+    <string name="butler_unavailable_body">Interphone non passerà di nascosto a un altro Butler.</string>
+    <string name="butler_open_connection">Apri connessione</string>
+    <string name="talk_message_hint">Scrivi a %1$s…</string>
+    <string name="talk_output_label">%1$s ha risposto</string>
+</resources>
