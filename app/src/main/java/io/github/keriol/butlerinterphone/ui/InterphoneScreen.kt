@@ -24,6 +24,8 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -54,13 +56,14 @@ import io.github.keriol.butlerinterphone.settings.ConnectionSettingsStore
 
 private enum class InterphoneArea(
     val title: String,
+    val navLabel: String,
     val primary: Boolean = true,
 ) {
-    Text("Text to your Butler"),
-    Voice("Talk to your Butler"),
-    Butler("Butler on Bifröst"),
-    About("About"),
-    Config("Connection", primary = false),
+    Text("Text to your Butler", "Text"),
+    Voice("Talk to your Butler", "Voice"),
+    Butler("Butler on Bifröst", "Runtime"),
+    About("About", "About"),
+    Config("Connection", "Connection", primary = false),
 }
 
 @Composable
@@ -188,88 +191,98 @@ fun InterphoneScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding()
-            .padding(top = 8.dp),
+            .statusBarsPadding(),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+        Surface(
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 2.dp,
         ) {
-            Column {
-                Text(
-                    text = DefaultInterphoneBranding.appName,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = DefaultInterphoneBranding.tagline,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            TextButton(
-                onClick = { areaName = InterphoneArea.Config.name },
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Connection")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            InterphoneArea.entries.filter { it.primary }.forEach { candidate ->
-                if (candidate == area) {
-                    Button(onClick = {}) {
-                        Text(candidate.title)
-                    }
-                } else {
-                    OutlinedButton(
-                        onClick = { areaName = candidate.name },
-                    ) {
-                        Text(candidate.title)
-                    }
+                Column(
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        text = DefaultInterphoneBranding.appName,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = DefaultInterphoneBranding.tagline,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                TextButton(
+                    onClick = { areaName = InterphoneArea.Config.name },
+                ) {
+                    Text(
+                        if (isConnectionConfigured(state)) {
+                            "Connected"
+                        } else {
+                            "Connection"
+                        }
+                    )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-        HorizontalDivider()
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+        ) {
+            when (area) {
+                InterphoneArea.Text -> TalkArea(
+                    state = state,
+                    onMessageChanged = onMessageChanged,
+                    onSend = onSend,
+                )
+                InterphoneArea.Voice -> VoiceArea()
+                InterphoneArea.Butler -> ButlerArea(
+                    state = state,
+                    onRefresh = onRefreshManifest,
+                )
+                InterphoneArea.About -> AboutArea(
+                    appVersion = appVersion,
+                    buildDate = buildDate,
+                    buildType = buildType,
+                    onOpenConnection = {
+                        areaName = InterphoneArea.Config.name
+                    },
+                )
+                InterphoneArea.Config -> ConfigArea(
+                    state = state,
+                    onProtocolChanged = onProtocolChanged,
+                    onHostChanged = onHostChanged,
+                    onPortChanged = onPortChanged,
+                    onTokenChanged = onTokenChanged,
+                    onTargetButlerChanged = onTargetButlerChanged,
+                    onRefreshButlers = onRefreshButlers,
+                    onSave = onSaveConfig,
+                )
+            }
+        }
 
-        when (area) {
-            InterphoneArea.Text -> TalkArea(
-                state = state,
-                onMessageChanged = onMessageChanged,
-                onSend = onSend,
-            )
-            InterphoneArea.Voice -> VoiceArea()
-            InterphoneArea.Butler -> ButlerArea(
-                state = state,
-                onRefresh = onRefreshManifest,
-            )
-            InterphoneArea.About -> AboutArea(
-                appVersion = appVersion,
-                buildDate = buildDate,
-                buildType = buildType,
-                onOpenConnection = { areaName = InterphoneArea.Config.name },
-            )
-            InterphoneArea.Config -> ConfigArea(
-                state = state,
-                onProtocolChanged = onProtocolChanged,
-                onHostChanged = onHostChanged,
-                onPortChanged = onPortChanged,
-                onTokenChanged = onTokenChanged,
-                onTargetButlerChanged = onTargetButlerChanged,
-                onRefreshButlers = onRefreshButlers,
-                onSave = onSaveConfig,
-            )
+        NavigationBar(
+            containerColor = MaterialTheme.colorScheme.surface,
+            tonalElevation = 4.dp,
+        ) {
+            InterphoneArea.entries
+                .filter { it.primary }
+                .forEach { candidate ->
+                    NavigationBarItem(
+                        selected = candidate == area,
+                        onClick = { areaName = candidate.name },
+                        icon = {},
+                        label = { Text(candidate.navLabel) },
+                    )
+                }
         }
     }
 }
@@ -412,20 +425,36 @@ private fun TalkArea(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 14.dp),
     ) {
-        Text(
-            text = "${talkTargetLabel(state.targetButlerName)} • ${talkRouteLabel(state.targetButlerName)}",
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-        )
-
-        state.sourceButlerName?.let { source ->
-            Text(
-                text = "Last response from $source",
-                style = MaterialTheme.typography.bodySmall,
-            )
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surfaceVariant,
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            ) {
+                Text(
+                    text = talkTargetLabel(state.targetButlerName),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = talkRouteLabel(state.targetButlerName),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                state.sourceButlerName?.let { source ->
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Last response from $source",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         OutlinedTextField(
             value = state.message,
