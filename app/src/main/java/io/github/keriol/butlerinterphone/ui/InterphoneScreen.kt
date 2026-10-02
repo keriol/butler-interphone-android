@@ -164,11 +164,9 @@ fun InterphoneScreen(
         mutableStateOf(InterphoneArea.Text.name)
     }
     val area = InterphoneArea.valueOf(areaName)
-    val openingButlerName = rememberSaveable {
-        state.targetButlerName.trim()
-    }
+    val openingButlerName = state.targetButlerName.trim()
     var openingDismissed by rememberSaveable {
-        mutableStateOf(openingButlerName.isBlank())
+        mutableStateOf(false)
     }
     val openingState = butlerOpeningState(
         state = state,
