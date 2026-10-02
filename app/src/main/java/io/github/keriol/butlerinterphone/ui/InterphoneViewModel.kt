@@ -57,6 +57,10 @@ class InterphoneViewModel(
         _uiState.update {
             it.copy(
                 protocol = protocol,
+                nodeManifest = null,
+                compatibilityError = null,
+                compatibilityWarnings = emptyList(),
+                incompatibleButlers = emptyMap(),
                 error = null,
                 configSaved = false,
             )
@@ -67,6 +71,10 @@ class InterphoneViewModel(
         _uiState.update {
             it.copy(
                 host = host,
+                nodeManifest = null,
+                compatibilityError = null,
+                compatibilityWarnings = emptyList(),
+                incompatibleButlers = emptyMap(),
                 error = null,
                 configSaved = false,
             )
@@ -77,6 +85,10 @@ class InterphoneViewModel(
         _uiState.update {
             it.copy(
                 port = port,
+                nodeManifest = null,
+                compatibilityError = null,
+                compatibilityWarnings = emptyList(),
+                incompatibleButlers = emptyMap(),
                 error = null,
                 configSaved = false,
             )
@@ -87,6 +99,10 @@ class InterphoneViewModel(
         _uiState.update {
             it.copy(
                 token = token,
+                nodeManifest = null,
+                compatibilityError = null,
+                compatibilityWarnings = emptyList(),
+                incompatibleButlers = emptyMap(),
                 error = null,
                 configSaved = false,
             )
@@ -182,22 +198,30 @@ class InterphoneViewModel(
                 val manifest = clientFactory(endpoint, token)
                     .getNodeManifest()
                     ?: throw IllegalStateException("Bifröst returned no node manifest.")
+                val compatibility = IgnitionCompatibility.evaluate(manifest)
                 _uiState.update {
                     it.copy(
                         nodeManifest = manifest,
                         manifestLoading = false,
                         manifestError = null,
+                        compatibilityError = compatibility.networkError,
+                        compatibilityWarnings = compatibility.warnings,
+                        incompatibleButlers = compatibility.incompatibleButlers,
                     )
                 }
             } catch (exc: Exception) {
                 _uiState.update {
                     it.copy(
+                        nodeManifest = null,
                         manifestLoading = false,
                         manifestError = (
                             exc.message
                                 ?.takeIf { message -> message.isNotBlank() }
                                 ?: "Could not load node manifest."
                         ),
+                        compatibilityError = null,
+                        compatibilityWarnings = emptyList(),
+                        incompatibleButlers = emptyMap(),
                     )
                 }
             }
@@ -310,9 +334,16 @@ class InterphoneViewModel(
             return
         }
 
+        val targetCompatibilityError = targetButlerName?.let { target ->
+            state.incompatibleButlers[target.lowercase()]
+        }
         val validationError = when {
             token.isEmpty() -> "Bifröst token is required."
             message.isEmpty() -> "Message cannot be empty."
+            state.nodeManifest == null ->
+                "Compatibility not verified. Refresh the runtime manifest."
+            state.compatibilityError != null -> state.compatibilityError
+            targetCompatibilityError != null -> targetCompatibilityError
             else -> null
         }
 
